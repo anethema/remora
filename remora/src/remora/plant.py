@@ -75,6 +75,9 @@ class Plant:
         twin = c["steering"] == "differential"
         left = demand(ch1) if twin else 0.0
         right = demand(ch3)
+        if not twin:
+            # A forward-only drive coasts below neutral. Steering remains bidirectional.
+            right = max(0.0, right)
         target_angle = 0 if twin else math.radians(STEERING_LIMIT_DEG) * demand(ch1)
         self.steer += max(-dt, min(dt, target_angle - self.steer))
         self.a += (left - self.a) * min(1, dt / 0.35)

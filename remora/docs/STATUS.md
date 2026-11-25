@@ -66,6 +66,15 @@ The same closed-loop cross-current scenario reached verified Loiter on all four 
 
 A separate 15 lbf negative control with a 2 m/s westward current against an eastbound route faulted for no sustained progress at 74.0 s. The supervisor recorded failure and requested Hold.
 
+## Forward-only station and diver position updates
+
+The single-motor lancha now turns toward its station and offsets drift with forward thrust. The initial selection of forward Loiter alone lost over 400 m in the northward-current test. The tuned profile is confined to the external simulation. Firmware settings are verified by readback. Water speed and wind are never passed directly to the navigation controller.
+
+- `./remora/scripts/run-tests.sh --station -q` passed four real Rover tests, each lasting 420 simulated seconds. During the final 180 s the maximum measured station offsets were 12.3 m for the northward 1 m/s current alone, 6.1 m for the 20 km/h wind from east alone, 11.0 m combined and 10.7 m with both reversed. The combined boat settled near 152° true, the opposite case near 331°. Every sampled thrust was forward or zero. The initial turn can make a considerably larger excursion.
+- `./remora/scripts/run-tests.sh --update -q` passed. MAVLink showed three distinct commanded and echoed waypoints, including a manual update from confirmed Loiter. The terminal update in run `20261125T213129Z-5f0ac2c4` put the meeting point at E 130.0, N 62.3 m. Windows Chrome also exercised updates underway and after arrival, maintaining a fixed waypoint between presses, and verified station keeping, replay lockout and the separate-operator scenario. See `remora/artifacts/browser/manual-update-probe.log`.
+- `./remora/scripts/run-tests.sh -q` passed 47 tests. `--recovery -q` passed with the forward-drive profile. The reference native `--smoke --speedup 12` passed with a 3.88 m waypoint residual and 2.10 m Loiter excursion. With the new forward profile, the 1 km cross-current scenario reached Loiter for pickup requests at 27 s and 146 s, with minimum diver separations of 106.8 m and 108.2 m.
+- The proposed physical architecture can retain the original hand throttle and motor power electronics. The exact make, model, throttle interface and fault behavior remain hardware-planning questions. The simulation's current estimate cannot validate any battery-side controller.
+
 ## Next implementation task
 
 Run controlled paired wind/current sweeps for the reference hull and plot along-track speed, lateral error and energy by steering method. Preserve no-progress and time-out outcomes. Obtain a head-on silhouette with scale at the intended loaded waterline before treating bow windage as a measured input. Any live dive continues to require separate surface supervision and independent recovery.

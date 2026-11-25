@@ -1,0 +1,14 @@
+# Single-motor lancha simulation: face the station and coast when slowing.
+LOIT_TYPE 1
+ATC_BRAKE 0
+# Far outside the station Rover needs enough throttle to turn even when drifting.
+# Guided transit uses the separately acknowledged CRUISE_SPEED of 1.8 m/s.
+WP_SPEED 4
+LOIT_RADIUS 2
+LOIT_SPEED_GAIN 0.04
+# The resulting forward demand balances external loads at a measured down-drift offset.
+ATC_SPEED_I 0
+ATC_STR_RAT_I 0.04
+ATC_STR_RAT_P 1
+ATC_STR_RAT_FF 1
+ATC_STR_RAT_IMAX 0.35

@@ -333,6 +333,44 @@ const series = [
 series.forEach(([name], index) => el("series").add(new Option(name, index)));
 el("series").onchange = () => drawChart();
 
+function renderRendezvousUpdate(s, handheld, downlink) {
+  const active = ["TRANSIT_TO_RENDEZVOUS", "RENDEZVOUS_HOLD"].includes(s.state);
+  const update = s.radio?.update;
+  const button = document.querySelector('[data-action="update_rendezvous"]');
+  button.hidden = !handheld || !active || !!replay;
+  button.title = s.update_block_reason || "Send one fresh diver position to update the separated meeting point";
+  const hasMeeting = handheld && active && downlink.meeting_active === true &&
+    Number.isFinite(downlink.meeting_range_m) && Number.isFinite(downlink.meeting_bearing_deg);
+  el("active-meeting").hidden = !hasMeeting;
+  if (hasMeeting) {
+    display("active-meeting", "Last reported meeting point · " + number(downlink.meeting_range_m, 0, " m") +
+      " from you at " + number(downlink.meeting_bearing_deg, 0, "° true") + ".");
+  }
+
+  const status = el("update-status");
+  const blocked = active && s.update_block_reason;
+  status.hidden = !handheld || (!update && !blocked);
+  if (status.hidden) return;
+  if (!update) {
+    if (status.textContent !== blocked) status.textContent = blocked;
+    return;
+  }
+  const states = {
+    sent: "sent by handheld",
+    received: "received by boat",
+    executing: "execution confirmed by boat",
+    rejected: "refused by boat",
+    unconfirmed: "unconfirmed"
+  };
+  const label = states[update.status] || nice(update.status);
+  const requested = {e: update.target_e, n: update.target_n};
+  const text = "Last rendezvous update " + update.sequence + " · " + label +
+    (point(requested) ? " · Requested point E " + number(requested.e, 0, " m") + ", N " + number(requested.n, 0, " m") : "") +
+    (update.reason ? " · " + update.reason : "") +
+    (blocked && blocked !== update.reason ? " · " + blocked : "");
+  if (status.textContent !== text) status.textContent = text;
+}
+
 function render() {
   const s = snapshot;
   const {
@@ -348,6 +386,7 @@ function render() {
   display("boat-summary", boatDesign.summary(c));
   const oneTap = c.authorization === "handheld_pickup";
   const handheld = oneTap || c.authorization === "diver_handheld";
+  renderRendezvousUpdate(s, handheld, downlink);
   const stationButton = document.querySelector('[data-action="station_keep"]');
   stationButton.title = s.station_block_reason || (s.state === "STATION_KEEPING" ? "Already holding this station" : "Hold the current area");
   display("operator-title", handheld ? "Simulation monitor · empty boat" : "Surface operator");
@@ -384,7 +423,7 @@ function render() {
     ? (Math.atan2(target.e-b.e, target.n-b.n) * 180 / Math.PI + 360) % 360 : null;
   display("target-bearing", number(bearing, 0, "°"));
   display("battery", number(b.voltage_v, 1, " V"));
-  display("position-info", "Metres from the simulated origin. Boat " + coords(boat) + " · Diver " + coords(diver) + " · Candidate " + coords(target));
+  display("position-info", "Metres from the simulated origin. Boat " + coords(boat) + " · Diver " + coords(diver) + " · Rendezvous " + coords(target));
   const feedback = s.state === "ABORT" ? [s.fault, s.station_block_reason || "Station keep here will hold the current position."].filter(Boolean).join(" · ") : s.fault || s.approval_block_reason;
   display("fault", feedback || "");
   el("fault").hidden = !feedback;

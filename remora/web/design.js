@@ -16,6 +16,7 @@ const boatDesign = (() => {
   function update() {
     get("hull-controls").disabled = get("boat-model").value === "native";
     get("native-note").hidden = get("boat-model").value !== "native";
+    get("station-policy").hidden = get("boat-model").value !== "lancha" || get("steering").value === "differential";
     const thrust = Number(get("thrust_lbf").value);
     const motors = get("steering").value === "differential" ? 2 : 1;
     get("thrust-value").textContent = Number.isFinite(thrust) ?

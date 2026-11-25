@@ -20,6 +20,7 @@ from pymavlink.dialects.v20 import ardupilotmega as mav
 from .plant import STEERING_LIMIT_DEG
 
 ROOT = Path(__file__).resolve().parents[3]
+FORWARD_PROFILE = ROOT / "remora/configs/forward_motor.parm"
 LANCHA_PROFILE = ROOT / "remora/configs/lancha.parm"
 PIN = "d9c5097c3d8333435712ffed86bca8ce00c4bb46"
 MODES = {0: "MANUAL", 4: "HOLD", 5: "LOITER", 15: "GUIDED", 16: "INITIALISING"}
@@ -95,7 +96,10 @@ class Sitl:
                         f"MOT_VEC_ANGLEMAX {STEERING_LIMIT_DEG if self.plant['steering'] == 'steerable' else 0}\n"
                         f"BATT_CAPACITY {round(1000 * self.plant['capacity_ah'])}\n"
                     )
-                    defaults.extend([LANCHA_PROFILE, profile])
+                    defaults.append(LANCHA_PROFILE)
+                    if not twin:
+                        defaults.append(FORWARD_PROFILE)
+                    defaults.append(profile)
                     runner = [sys.executable, "-m", "remora.fdm", str(self.work / "design.json"), str(binary)]
                 # Each namespace has only loopback. The firmware RC socket also stays inside it.
                 args = [
@@ -292,8 +296,16 @@ class Sitl:
         }
         if self.plant:
             expected["MOT_VEC_ANGLEMAX"] = STEERING_LIMIT_DEG if self.plant["steering"] == "steerable" else 0
+            twin = self.plant["steering"] == "differential"
+            if not twin:
+                expected["CRUISE_SPEED"] = 1.8
+                for line in FORWARD_PROFILE.read_text().splitlines():
+                    setting = line.partition("#")[0].split()
+                    if setting:
+                        name, value = setting
+                        expected[name] = float(value)
             expected["BATT_CAPACITY"] = round(1000 * self.plant["capacity_ah"])
-            if self.plant["steering"] == "differential":
+            if twin:
                 expected.update(SERVO1_FUNCTION=73, SERVO3_FUNCTION=74)
         for name, value in expected.items():
             self._wait(
@@ -301,7 +313,7 @@ class Sitl:
                 f"Missing parameter {name}",
                 send=lambda: self.mav.param_request_read_send(1, 1, name.encode(), -1),
             )
-            if self.params[name] != value:
+            if not math.isclose(self.params[name], value, rel_tol=1e-6):
                 raise RuntimeError(f"Unexpected {name}={self.params[name]}, expected {value}")
         self.mode("HOLD")
         self.identity["verified_parameters"] = expected
@@ -358,6 +370,26 @@ class Sitl:
             timeout=6,
             send=lambda: self._cmd(mav.MAV_CMD_REQUEST_MESSAGE, mav.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT),
         )
+
+        if self.plant and self.plant["steering"] != "differential":
+            # The forward-only Loiter profile needs extra turning authority while drifting.
+            # Give Guided its original cruise speed once it has accepted the waypoint.
+            command = mav.MAV_CMD_DO_CHANGE_SPEED
+            self.last.pop("COMMAND_ACK", None)
+
+            def accepted_speed():
+                ack = self.last.get("COMMAND_ACK")
+                if not ack or ack.command != command:
+                    return False
+                if ack.result != mav.MAV_RESULT_ACCEPTED:
+                    raise RuntimeError(f"Guided cruise speed rejected by Rover ({ack.result})")
+                return True
+
+            self._wait(
+                accepted_speed,
+                "Guided cruise speed unconfirmed",
+                send=lambda: self._cmd(command, 1, self.params["CRUISE_SPEED"], -1),
+            )
 
     def dump_params(self):
         self.param_indices.clear()

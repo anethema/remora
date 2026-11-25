@@ -53,6 +53,19 @@ def test_steering_signs_and_neutral():
     assert twin.yaw > 0 and math.hypot(twin.e, twin.n) < 0.001
 
 
+@pytest.mark.parametrize("steering", ["steerable", "rudder"])
+def test_single_motor_cannot_produce_astern_thrust(steering):
+    boat = simulate(ch3=1000, steering=steering)
+    assert boat.force == boat.n == 0
+    assert boat.amps == 0.5
+    running = simulate(ch3=1850, steering=steering)
+    forward = running.force
+    for _ in range(200):
+        running.step(1500, 1000, 0.01)
+        assert 0 <= running.force <= forward
+    assert running.force < forward * 0.01
+
+
 def test_v1_scenarios_and_validation():
     legacy = load()
     del legacy["authorization"], legacy["boat_design"]
