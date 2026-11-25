@@ -16,8 +16,8 @@ cd ~/src/remora
 Open **http://127.0.0.1:8765/** from Windows. Select **Boat, motor & wind** at the top, or open **http://127.0.0.1:8765/#boat-setup** when idle.
 
 - **Hull & steering** offers hull presets, loaded mass and length, a steerable motor, a fixed propeller with rudder, or twin differential thrust.
-- **Motor & battery** sets static lbf **per motor** with a newton equivalent, peak draw, battery chemistry and amp-hours.
-- **Wind & water** sets wind speed in km/h, wind-from direction in true degrees, bow and side wind resistance as CdA in m², and east/north water current. A 0° wind blows south. CdA is exposed projected area times drag coefficient. The default 0.7 m² bow value is an editable assumption.
+- **Motor & battery** sets static thrust in lbf per motor, total installed thrust in lbf, peak draw in A, battery chemistry and capacity in Ah.
+- **Wind & water** uses km/h for wind speed and both water-current components, true degrees for wind-from direction and m² for bow and side CdA. Diver drift and boat ground speed also use km/h. Radio loss uses percent in setup and telemetry. A 0° wind blows south. CdA is exposed projected area times drag coefficient. The default 0.7 m² bow value is an editable assumption.
 - **Apply scenario**, then choose **Start run**. For the default empty-boat scenario, wait for the virtual handheld to display a meeting point, then press **Request pickup** once. The radio request authorizes that exact point. The boat steers toward the separate waypoint. **Cancel pickup** requests Hold. After Hold is confirmed, **Station keep here** explicitly requests Loiter near the boat’s current position. A later pickup needs a new tap. A lost packet can be retried after the button becomes available. **Surface operator** remains an optional two-person test workflow.
 - To run the fixed native L1 reference instead, launch `./remora/scripts/run-sim.sh --scenario remora/scenarios/pickup_1km.yaml`. An active run archives on **Reset**. Edit the next run after the engine returns to idle. Ctrl+C closes the server and its child.
 
@@ -25,7 +25,7 @@ During a handheld pickup or rendezvous hold, press **Update rendezvous** after d
 
 Use one simulator at a time. The dashboard, batch runner and firmware tests share a per-user lock on WSL and Linux. Stop the running simulation before starting firmware tests.
 
-Use the plot, metrics and telemetry selector to inspect a run. Download JSON for replay or CSV for a spreadsheet. **Open replay** loads saved samples into a separate read-only view. Live pause/resume is unavailable. The speed multiplier applies to the next launch. The handheld updates only when simulated packets arrive.
+Use the plot, metrics and telemetry selector to inspect a run. Download JSON for replay or raw telemetry CSV for a spreadsheet. Saved data retain their named schema units, including m/s for velocity and newtons for raw plant thrust. **Open replay** loads saved samples into a separate read-only view. Live pause/resume is unavailable. The speed multiplier applies to the next launch. The handheld updates only when simulated packets arrive.
 
 ## Fresh installation
 

@@ -62,8 +62,8 @@ const fields = [
   ["Virtual diver", [
     ["diver_e_m", "Initial east (m)"],
     ["diver_n_m", "Initial north (m)"],
-    ["drift_e_mps", "Diver drift over ground · east (m/s)"],
-    ["drift_n_mps", "Diver drift over ground · north (m/s)"]
+    ["drift_e_mps", "Diver drift over ground · east (km/h)"],
+    ["drift_n_mps", "Diver drift over ground · north (km/h)"]
   ]],
   ["Rendezvous", [
     ["target_e_m", "Target east (m)"],
@@ -73,7 +73,7 @@ const fields = [
   ]],
   ["Radio", [
     ["latency_s", "One-way delay (s)"],
-    ["loss", "Loss probability (0–1)"],
+    ["loss", "Packet loss (%)"],
     ["freshness_s", "Fix freshness limit (s)"]
   ]]
 ];
@@ -96,12 +96,15 @@ function showForm(data) {
       wrapper.textContent = label;
       const input = document.createElement("input");
       input.name = key;
-      input.value = data[key];
       input.type = key === "name" ? "text" : "number";
+      input.value = input.type === "number" ? editorNumber(key, data[key]) : data[key];
       input.step = ["seed", "speedup"].includes(key) ? "1" : "any";
       if (key === "loss") {
         input.min = "0";
-        input.max = "1";
+        input.max = "100";
+      } else if (key === "drift_e_mps" || key === "drift_n_mps") {
+        input.min = "-10.8";
+        input.max = "10.8";
       }
       input.required = true;
       wrapper.append(input);
@@ -114,10 +117,11 @@ function showForm(data) {
 function formValue() {
   if (!el("scenario-form").reportValidity()) throw Error("Check the marked field.");
   const values = {
-    ...formDraft, ...boatDesign.read()
+    ...formDraft, ...boatDesign.read(formDraft.boat_design)
   };
   el("fields").querySelectorAll("input").forEach(input => {
-    values[input.name] = input.type === "number" ? input.valueAsNumber : input.value.trim();
+    values[input.name] = input.type === "number"
+      ? scenarioNumber(input.name, input.valueAsNumber, formDraft[input.name]) : input.value.trim();
   });
   return values;
 }
@@ -317,7 +321,7 @@ function geometryPoints() {
   };
 }
 const series = [
-  ["Ground speed", "km/h", s => Number.isFinite(s.boat?.speed_mps) ? s.boat.speed_mps * 3.6 : null],
+  ["Ground speed", "km/h", s => Number.isFinite(s.boat?.speed_mps) ? s.boat.speed_mps * KMH_PER_MPS : null],
   ["Total motor thrust", "lbf", s => Number.isFinite(s.boat?.plant?.thrust_n) ? s.boat.plant.thrust_n / NEWTONS_PER_LBF : null],
   ["Model energy", "Wh", s => s.boat?.plant?.energy_wh],
   ["Battery voltage", "V", s => s.boat?.voltage_v],
@@ -424,7 +428,7 @@ function render() {
   display("remote-age", Number.isFinite(downlink.t) && Number.isFinite(s.sim_s) ? number(Math.max(0, s.sim_s - downlink.t), 1, " s") : "—");
   const previewRange = preview() && point(diver) ? Math.hypot(diver.e, diver.n) : null;
   display("separation", number(preview() ? previewRange : s.separation_m, 0, " m"));
-  display("speed", number(Number.isFinite(b.speed_mps) ? 3.6 * b.speed_mps : null, 1, " km/h"));
+  display("speed", number(Number.isFinite(b.speed_mps) ? KMH_PER_MPS * b.speed_mps : null, 1, " km/h"));
   display("heading", number(b.heading_deg, 0, "°"));
   display("course", number(b.course_deg, 0, "°"));
   const bearing = point(b) && point(target) && Math.hypot(target.e-b.e, target.n-b.n) >= 1
@@ -591,9 +595,9 @@ function drawMap() {
   if (design?.model === "lancha") {
     const rad = design.wind_from_deg * Math.PI / 180;
     flowArrow(ctx, w / 2 - 48, 18, -design.wind_speed_mps * Math.sin(rad), -design.wind_speed_mps * Math.cos(rad),
-      "Wind " + number(design.wind_speed_mps * 3.6, 1, " km/h"), "#c3e5fb");
+      "Wind " + number(design.wind_speed_mps * KMH_PER_MPS, 1, " km/h"), "#c3e5fb");
     flowArrow(ctx, w / 2 - 48, 41, design.current_e_mps, design.current_n_mps,
-      "Current " + number(Math.hypot(design.current_e_mps, design.current_n_mps), 1, " m/s"), "#b8e5c6");
+      "Current " + number(Math.hypot(design.current_e_mps, design.current_n_mps) * KMH_PER_MPS, 1, " km/h"), "#b8e5c6");
   }
   if (point(diver) && radius > 0) {
     ctx.beginPath();

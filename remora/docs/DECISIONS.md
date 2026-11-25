@@ -51,3 +51,7 @@ The diver explicitly authorizes each move using the handheld. Keep the original 
 ## One simulation at a time
 
 Use the single WSL dashboard on port 8765. The shared SITL adapter acquires an exclusive per-user OS file lock before spawning firmware and releases it after the child exits. Dashboard, batch, smoke and live tests all use the adapter. Unit tests can run without firmware. Schedule hosted firmware verification separately from desktop sim sessions.
+
+## Operator display units
+
+Use one unit per quantity throughout the dashboard. Display boat, wind, current and diver speeds in km/h; distances in m; thrust in lbf; and radio loss in percent. Store scenarios and telemetry with their established field units. Apply conversions at the editor and display boundaries, including reload and replay. Keep an unchanged field at its original precision when saving other edits.

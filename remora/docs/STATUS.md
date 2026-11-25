@@ -84,3 +84,7 @@ The telemetry picker labels its units. Total motor thrust now displays in lbf, m
 ## Next implementation task
 
 Run controlled paired wind/current sweeps for the reference hull and plot along-track speed, lateral error and energy by steering method. Preserve no-progress and time-out outcomes. Obtain a head-on silhouette with scale at the intended loaded waterline before treating bow windage as a measured input. Any live dive continues to require separate surface supervision and independent recovery.
+
+## Consistent dashboard units
+
+All operator speed inputs and readings now use km/h. The setup, plot and replay use lbf for thrust and percent for radio loss. A read-only Windows Chrome test on port 8765 exercised signed current/drift limits, zero, fractional packet loss, JSON save/load roundtrips, map rendering and 80/160 lbf single/twin ratings. The existing scenario was identical before and after the test. Evidence is in `remora/artifacts/browser/dashboard-units-readonly.log`.
