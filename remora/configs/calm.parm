@@ -1,0 +1,5 @@
+# Remora L1 calm-water test profile. Apply only to an isolated motorboat SITL process.
+SIM_WIND_SPD 0
+SIM_WIND_T 0
+SIM_TIDE_SPEED 0
+SIM_WAVE_ENABLE 0
