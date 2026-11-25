@@ -50,6 +50,7 @@ def write_json(path, data):
 class Engine:
     def __init__(self, config):
         self.config = validate(config)
+        self.scenario_revision = 0
         self.lock = threading.RLock()
         self.lifecycle = threading.Lock()
         self.worker = None
@@ -66,14 +67,17 @@ class Engine:
 
     def snapshot(self):
         with self.lock:
-            return dict(copy.deepcopy(self.state), fidelity=self.fidelity)
+            return dict(copy.deepcopy(self.state), fidelity=self.fidelity, scenario_revision=self.scenario_revision)
 
     def configure(self, config):
         with self.lock:
             if self.state["status"] != "IDLE":
                 raise ValueError("Reset the current run before editing the scenario")
-            self.config = validate(config)
-            return self.config.copy()
+            new_config = validate(config)
+            if new_config != self.config:
+                self.config = new_config
+                self.scenario_revision += 1
+            return copy.deepcopy(self.config)
 
     def start(self):
         with self.lifecycle, self.lock:

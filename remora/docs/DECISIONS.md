@@ -55,3 +55,7 @@ Use the single WSL dashboard on port 8765. The shared SITL adapter acquires an e
 ## Operator display units
 
 Use one unit per quantity throughout the dashboard. Display boat, wind, current and diver speeds in km/h; distances in m; thrust in lbf; and radio loss in percent. Store scenarios and telemetry with their established field units. Apply conversions at the editor and display boundaries, including reload and replay. Keep an unchanged field at its original precision when saving other edits.
+
+## Sharing one simulated boat
+
+Use Gradio's temporary HTTPS sharing service as an optional transport for the existing dashboard. The owner requested the full simulator controls for invited guests. Each guest uses the normal supervisor and the single-simulation interlock. The generated invite stays in the user's private WSL cache outside Git. The offline desktop workflow has no Gradio dependency.

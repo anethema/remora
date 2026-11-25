@@ -11,6 +11,10 @@ const display = (id, text) => {
 };
 const finiteMax = (collection, fn) => collection.reduce((a, x) => Number.isFinite(fn(x)) ? Math.max(a, fn(x)) : a, -Infinity);
 let scenario = null;
+let scenarioRevision;
+let lastScenarioRead = 0;
+let liveGeneration = 0;
+let draftEdited = false;
 let snapshot = {};
 let connected = false;
 let busy = false;
@@ -132,10 +136,11 @@ function canEdit() {
 async function applyScenario(value) {
   if (!canEdit()) throw Error("Reset the simulator before editing the scenario.");
   busy = true;
+  liveGeneration++;
   renderControls();
   try {
     await api("/api/scenario", "PUT", value);
-    scenario = await api("/api/scenario");
+    await acceptSnapshot(await api("/api/state"), true);
     view = null;
     notice("Scenario updated.");
   } finally {
@@ -146,10 +151,12 @@ async function applyScenario(value) {
 el("open-editor").onclick = () => {
   if (!canEdit() || !scenario) return;
   showForm(scenario);
+  draftEdited = false;
   display("form-status", "");
   el("editor").showModal();
 };
 el("discard").onclick = el("close-editor").onclick = () => el("editor").close();
+el("scenario-form").addEventListener("input", () => { draftEdited = true; });
 el("scenario-file").onchange = async (event) => {
   try {
     const file = event.target.files[0];
@@ -159,6 +166,7 @@ el("scenario-file").onchange = async (event) => {
       throw Error("Select a complete version 1 Remora scenario.");
     }
     showForm(value);
+    draftEdited = true;
     display("form-status", "Loaded into the editor. Apply to use this scenario.");
   } catch (error) {
     display("form-status", error.message);
@@ -193,12 +201,12 @@ document.querySelectorAll("[data-action]").forEach(button => {
   button.onclick = async () => {
     if (busy || replay || !connected || !snapshot.actions?.includes(button.dataset.action)) return;
     busy = true;
+    liveGeneration++;
     renderControls();
     try {
       const fresh = await api("/api/action", "POST", {action: button.dataset.action});
-      if (fresh.status === "IDLE") scenario = await api("/api/scenario");
+      await acceptSnapshot(fresh);
       notice("");
-      ingest(fresh);
     } catch (error) {
       notice(error.message);
     } finally {
@@ -212,6 +220,7 @@ function renderControls() {
   for (const b of document.querySelectorAll("[data-action]")) {
     b.disabled = !!replay || busy || !connected || !snapshot.actions?.includes(b.dataset.action);
   }
+  el("scenario-form").querySelector('[type="submit"]').disabled = !canEdit();
   el("open-editor").disabled = !canEdit() || !scenario;
   el("open-editor").title = canEdit() ? "Change hull, steering, motor and wind" : "Reset the run to edit the next scenario";
   if (location.hash === "#boat-setup" && canEdit() && scenario) {
@@ -239,19 +248,50 @@ function ingest(state) {
     if (samples.length > 5000) samples = samples.filter((_, i) => i % 2 === 0);
   }
 }
+async function acceptSnapshot(state, forceScenario = false) {
+  const generation = ++liveGeneration;
+  // Older running servers lack scenario_revision. Refresh on run changes and periodically while idle.
+  const legacyRefresh = state.scenario_revision == null &&
+    (state.run_id !== runId || (state.status === "IDLE" && performance.now() - lastScenarioRead > 1500));
+  if (!scenario || forceScenario || legacyRefresh || state.scenario_revision !== scenarioRevision) {
+    // Bracket the configuration read with snapshots so rapid edits cannot attach one setup to another revision.
+    while (generation === liveGeneration && !replay) {
+      const config = await api("/api/scenario");
+      const latest = await api("/api/state");
+      if (generation !== liveGeneration || replay) return;
+      const sameRevision = state.scenario_revision === latest.scenario_revision;
+      state = latest;
+      if (!sameRevision) continue;
+      const changed = JSON.stringify(scenario) !== JSON.stringify(config);
+      scenario = config;
+      scenarioRevision = state.scenario_revision;
+      lastScenarioRead = performance.now();
+      if (changed) {
+        view = null;
+        if (!busy && el("editor").open) {
+          if (!draftEdited) showForm(config);
+          display("form-status", draftEdited ?
+            "Another browser applied a scenario. Your open draft is preserved. Applying it replaces the shared setup." :
+            "The editor now shows the shared scenario.");
+        }
+      }
+      break;
+    }
+  }
+  if (generation !== liveGeneration || replay) return;
+  connected = true;
+  ingest(state);
+  render();
+}
+
 async function followSimulator() {
   let stream;
   let watchdog;
   try {
     if (!replay) {
+      const generation = liveGeneration;
       const fresh = await api("/api/state");
-      const config = await api("/api/scenario");
-      if (!busy && !replay) {
-        scenario = config;
-        connected = true;
-        ingest(fresh);
-        render();
-      }
+      if (!busy && !replay && generation === liveGeneration) await acceptSnapshot(fresh, true);
     }
     const url = new URL("/api/events", location.href);
     url.protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -263,20 +303,17 @@ async function followSimulator() {
       }
       expire();
       stream.onclose = resolve;
-      stream.onmessage = event => {
+      let reading = false;
+      stream.onmessage = async event => {
         expire();
-        if (busy || replay) return;
+        if (busy || replay || reading) return;
+        reading = true;
         try {
-          const fresh = JSON.parse(event.data);
-          if (!scenario || (fresh.status === "IDLE" && snapshot.status !== "IDLE")) {
-            stream.close();
-            return;
-          }
-          connected = true;
-          ingest(fresh);
-          render();
+          await acceptSnapshot(JSON.parse(event.data));
         } catch {
           stream.close();
+        } finally {
+          reading = false;
         }
       };
     });
@@ -284,6 +321,7 @@ async function followSimulator() {
     // Retry while the local server starts or restarts.
   } finally {
     clearTimeout(watchdog);
+    if (!busy) liveGeneration++;
     connected = false;
     render();
     setTimeout(followSimulator, 900);

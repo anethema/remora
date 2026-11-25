@@ -54,3 +54,9 @@ Bootstrap uses the checked-in dependency lock and accepts `PYTHON` and `JOBS`. T
 - For a lower-memory build, set `JOBS=2` for bootstrap. A new terminal can run tests or inspect artifacts while the dashboard remains open.
 
 Read [status and next tasks](docs/STATUS.md), [architecture](docs/ARCHITECTURE.md), [decisions](docs/DECISIONS.md) and [licenses](docs/LICENSES.md). The parent project is [ArduPilot](https://github.com/ArduPilot/ardupilot). Remora is an independent, AI-assisted development project.
+
+## Share the controls
+
+With the desktop dashboard running on port 8765, execute `./remora/scripts/share-sim.sh` in WSL. Sharing uses uv to install the pinned optional dependencies on its first launch. Give your friend the full HTTPS invite printed by the command. The invite opens the same dashboard and controls as the local browser. Both people operate the same Rover and can edit an idle scenario, start or reset the run, request pickup, update a meeting point or return to station keeping. A reset applies to everyone.
+
+Keep WSL, the dashboard and the share process running while using the temporary Gradio link. To retrieve the current invite, run `./remora/scripts/share-sim.sh --url`. Close it with Ctrl+C in the share terminal or with `./remora/scripts/share-sim.sh --stop`. Starting sharing again issues a fresh invite. Treat the full invite like a control credential.

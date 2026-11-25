@@ -88,3 +88,7 @@ Run controlled paired wind/current sweeps for the reference hull and plot along-
 ## Consistent dashboard units
 
 All operator speed inputs and readings now use km/h. The setup, plot and replay use lbf for thrust and percent for radio loss. A read-only Windows Chrome test on port 8765 exercised signed current/drift limits, zero, fractional packet loss, JSON save/load roundtrips, map rendering and 80/160 lbf single/twin ratings. The existing scenario was identical before and after the test. Evidence is in `remora/artifacts/browser/dashboard-units-readonly.log`.
+
+## Gradio shared controls
+
+The optional Gradio invite is active on the desktop. The public invite rendered the same dashboard in Windows Chrome. Verified three advancing WebSocket samples and HTTP 200 for a handheld status action on the same real run visible on the desktop. An independent HTTPS client received HTTP 403 without an invite and for a write from a different origin. Two browser contexts also passed scenario-edit, startup and reconnect synchronization checks using an in-memory fixture. All 49 unit tests passed. The public control link is private and excluded from this file. Retrieve it on WSL with `./remora/scripts/share-sim.sh --url`.
