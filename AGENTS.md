@@ -359,3 +359,9 @@ Open a discussion before writing code if:
 - **Do not move functions around without goal**: Keep the original code structure as possible.
 - **Do not add comment on all functions/lines**: Document only what was change and useful for future reading.
 - **Do not duplicate PRs**: If a PR was already open on a feature/bugfix/changes recently, do not duplicate it.
+
+## Project Remora fork
+
+Keep fork-specific changes under `remora/`. Run `./remora/scripts/run-tests.sh`, the real firmware smoke with `--smoke`, and a relevant headless rendezvous before reporting integration success. Record commands, outcomes, known gaps and next tasks in `remora/docs/STATUS.md`, design decisions in `DECISIONS.md`, and data flow in `ARCHITECTURE.md`. Preserve upstream attribution, baseline tags and submodule pins.
+
+Simulation inputs stay inside each owned SITL child. Never disable arming checks or expose live vehicle endpoints. Require surface-operator approval of a separated point. Hold, zero throttle and propulsion isolation are distinct. No powered approaches to people, boarding claims or unattended live diving operations.

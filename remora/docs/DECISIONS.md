@@ -12,3 +12,14 @@
 | 2026-11-25 | Preserve separate concepts for Hold, Loiter, drift and propulsion isolation. | Firmware-reported throttle and mode are observable. Isolation feedback and a boarding state have no physical implementation in this release. |
 
 No changes to Rover navigation, SITL physics or the pinned submodules are required for M0/M1.
+
+
+## Design controls and empty-boat simulation
+
+The default interactive scenario now uses a surfaced-diver handheld for human authorization. A downstream proposal includes request identity and measurement time. A separate impaired uplink returns confirmation. The supervisor checks the current request, radio freshness and route before commanding actual SITL. The original two-operator L1 scenario remains independently reproducible.
+
+Use the isolated JSON backend to change actual plant behavior. The native model has fixed mass/thrust assumptions. The new uncalibrated plant accepts selectable single steerable, fixed-motor/rudder and twin differential arrangements. Keep UI wind direction meteorological FROM and current vectors TO. Keep physics units SI. The UI converts wind and ground speed to km/h and motor static thrust from lbf to N.
+
+The original uncalibrated steerable trial reached a no-progress fault. The 120 m fixed-motor/rudder trial also initially failed; the model had very little steering authority at low speed. Subsequent experiments added directional stability and yaw damping, selected lower simulated turn-rate/angle gains for the heavy hull, and included propeller slipstream for the downstream rudder. Preserve those assumptions for sensitivity analysis. All three arrangements then reached a separated short course, and the default steerable lancha reached the 1 km scenario's separated waypoint.
+
+For an empty, low-sided open skiff, a preliminary sensitivity set for **bow CdA** is 0.20, 0.35 and 0.60 m². The middle value illustrates 1.4 m assumed beam × 0.32 m average exposed height × 0.8 assumed drag coefficient. It is not a measured coefficient for a particular hull. The physical quantity is measured head-on above the loaded waterline. [Drag equation](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/drag-equation/)
