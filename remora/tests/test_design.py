@@ -63,22 +63,80 @@ def test_v1_scenarios_and_validation():
             validate(dict(c, boat_design={**DEFAULT_DESIGN, **patch}))
 
 
-def test_handheld_requires_a_delivered_offer_and_matching_confirmation():
-    c = dict(load(), authorization="diver_handheld", latency_s=1, loss=0)
+def test_one_tap_delivers_one_guided_target():
+    c = validate(dict(load(), authorization="diver_handheld", latency_s=1, loss=0))
+    assert c["authorization"] == "handheld_pickup"
     m = Mission(c)
     boat = dict(e=0, n=0, mode="LOITER", armed=True, age_s=0, heartbeat_age_s=0)
     m.step(0, boat)
-    m.action("request", 0, boat)
-    m.step(2, boat)
     with pytest.raises(ValueError):
-        m.action("approve", 2, boat)
-    assert "confirm" not in m.snapshot(2, boat)["actions"]
-    for t in (3, 4, 5, 6):
-        m.step(t, boat)
+        m.action("request", 0, boat)
+    for t in range(1, 7):
+        assert m.step(t, boat) == []
     snap = m.snapshot(6, boat)
-    assert "confirm" in snap["actions"]
+    assert "request" in snap["actions"]
     assert snap["radio"]["telemetry"]["meeting_range_m"] == pytest.approx(100, abs=0.1)
-    assert m.action("confirm", 6, boat) == []
-    assert m.state == "PICKUP_REQUESTED"
+    assert m.action("request", 6, boat) == []
+    assert m.state == "STATION_KEEPING"
     assert m.step(8, boat) == [("target", 900, 0)]
     assert m.state == "TRANSIT_TO_RENDEZVOUS"
+    assert m.step(9, dict(boat, mode="GUIDED")) == []
+
+
+def test_single_press_rechecks_route_and_rejects_stale_or_substituted_offer():
+    from remora.mission import Packet
+
+    m = Mission(dict(load(), authorization="handheld_pickup", latency_s=0, loss=0))
+    boat = dict(e=0, n=0, mode="LOITER", armed=True, age_s=0, heartbeat_age_s=0)
+    for t in range(5):
+        m.step(t, boat)
+    payload = dict(e=1000.0, n=0.0, target_e=900.0, target_n=0.0, offer_t=4.0)
+    for fields in [dict(target_e=1000.0), dict(offer_t=-30.0)]:
+        assert m._receive(Packet(m._session, "request", 1, 4.0, dict(payload, **fields)), 4.0, boat) == []
+        assert m.state == "STATION_KEEPING"
+    m.action("request", 4.0, boat)
+    commands = m.step(4.0, dict(boat, e=999))
+    assert all(cmd[0] != "target" for cmd in commands)
+    assert "confirm" not in m.snapshot(4.0, boat)["actions"]
+
+
+def test_cancel_then_manually_station_keep_at_current_position():
+    m = Mission(dict(load(), latency_s=0, loss=0))
+    boat = dict(e=0, n=0, mode="LOITER", armed=True, age_s=0, heartbeat_age_s=0)
+    m.step(0, boat)
+    m.action("request", 0, boat)
+    m.step(0, boat)
+    assert m.action("approve", 1, boat) == [("target", 900, 0)]
+    guided = dict(boat, mode="GUIDED", e=220.0)
+    m.step(2, guided)
+    assert m.action("cancel", 3, guided) == []
+    assert m.step(3, guided) == [("hold",)]
+    hold = dict(guided, mode="HOLD", e=222.0)
+    assert m.step(4, hold) == []
+    assert m.state == "ABORT"
+    assert "station_keep" in m.snapshot(4, hold)["actions"]
+    m.action("station_keep", 4, hold)
+    assert m.step(4, hold) == [("loiter",)]
+    assert m.state == "SETTING_STATION"
+    m.step(5, dict(hold, mode="LOITER"))
+    s = m.snapshot(5, boat)
+    assert s["state"] == "STATION_KEEPING"
+    assert s["station"] == {"e": 222.0, "n": 0}
+    assert "request" in s["actions"]
+    assert m.step(6, dict(hold, mode="LOITER")) == []
+
+
+@pytest.mark.parametrize(
+    "update", [dict(armed=False), dict(e=995.0), dict(heartbeat_age_s=20.0), dict(plant={"motor_cutoff": True})]
+)
+def test_unsafe_manual_station_keep_is_refused(update):
+    m = Mission(dict(load(), latency_s=0, loss=0))
+    boat = dict(e=0, n=0, mode="LOITER", armed=True, age_s=0, heartbeat_age_s=0)
+    m.step(0, boat)
+    m.action("abort", 1, boat)
+    hold = dict(boat, mode="HOLD")
+    hold.update(update)
+    assert "station_keep" not in m.snapshot(2, hold)["actions"]
+    with pytest.raises(ValueError):
+        m.action("station_keep", 2, hold)
+    assert m.state == "ABORT"

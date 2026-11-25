@@ -44,7 +44,7 @@
         <article class="panel handheld">
           <div class="card-head"><h2>Virtual handheld</h2><span class="radio-icon" aria-hidden="true">◉</span></div>
           <div class="device"><small>Last radio acknowledgement</small><strong id="ack">—</strong><div><span>Boat range / bearing</span><b id="remote-range">—</b></div><div><span>Boat battery / ETA (m:ss)</span><b id="remote-energy">—</b></div><div><span>Telemetry age</span><b id="remote-age">—</b></div></div>
-          <p id="offer" class="caption" hidden></p><div class="buttons"><button type="button" class="primary" data-action="confirm" hidden disabled>Confirm meeting point</button><button type="button" class="primary" data-action="request" disabled>Request pickup</button><button type="button" data-action="cancel" disabled>Cancel</button><button type="button" data-action="status" disabled>Query status</button></div>
+          <p id="offer" class="caption" hidden></p><div class="buttons"><button type="button" class="primary" data-action="request" disabled>Request pickup</button><button type="button" data-action="cancel" disabled>Cancel pickup</button><button type="button" class="primary" data-action="station_keep" hidden disabled>Station keep here</button><button type="button" data-action="status" disabled>Query status</button></div>
         </article>
         <article class="panel operator">
           <div class="card-head"><h2 id="operator-title">Surface operator</h2></div>
@@ -71,7 +71,7 @@
     <form id="scenario-form">
       <div class="card-head"><h2>Boat, motor &amp; wind</h2><button type="button" id="close-editor" aria-label="Close scenario setup">×</button></div>
       <div class="design-form" id="design-setup">
-<fieldset><legend>Simulation setup</legend><label>Boat model<select id="boat-model"><option value="lancha">Configurable lancha · L2</option><option value="native">Native reference boat · L1</option></select></label><label>Who confirms the meeting point?<select id="authorization"><option value="diver_handheld">Surfaced diver · empty boat</option><option value="surface_operator">Separate surface operator</option></select></label></fieldset>
+<fieldset><legend>Simulation setup</legend><label>Boat model<select id="boat-model"><option value="lancha">Configurable lancha · L2</option><option value="native">Native reference boat · L1</option></select></label><label>Pickup authorization<select id="authorization"><option value="handheld_pickup">Empty boat · one-tap pickup</option><option value="surface_operator">Separate surface operator</option></select></label></fieldset>
 <p id="native-note" class="caption">Choose Configurable lancha to change hull, propulsion and weather.</p>
 <fieldset id="hull-controls"><legend>Experimental boat design</legend>
 <fieldset><legend>Hull & steering</legend><label>Hull preset<select id="hull-preset"><option value="light">Light · 3.0 m / 150 kg</option><option value="standard">Lancha · 3.7 m / 200 kg</option><option value="loaded">Loaded · 4.3 m / 250 kg</option><option value="custom">Custom dimensions</option></select></label><label>Hull length (m)<input type="number" id="length_m" min="2" max="6" step="any" required></label><label>Loaded mass (kg)<input type="number" id="mass_kg" min="80" max="650" step="any" required></label><label>Steering method<select id="steering"><option value="steerable">Single steerable motor</option><option value="rudder">Fixed motor and rudder</option><option value="differential">Twin differential thrust</option></select></label></fieldset>

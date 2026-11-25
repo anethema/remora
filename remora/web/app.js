@@ -62,8 +62,8 @@ const fields = [
   ["Virtual diver", [
     ["diver_e_m", "Initial east (m)"],
     ["diver_n_m", "Initial north (m)"],
-    ["drift_e_mps", "Eastward drift (m/s)"],
-    ["drift_n_mps", "Northward drift (m/s)"]
+    ["drift_e_mps", "Diver drift over ground · east (m/s)"],
+    ["drift_n_mps", "Diver drift over ground · north (m/s)"]
   ]],
   ["Rendezvous", [
     ["target_e_m", "Target east (m)"],
@@ -346,15 +346,17 @@ function render() {
   const c = activeScenario();
   display("scenario-name", c.name ? c.name + " · Seed " + c.seed + " · " + c.speedup + "× firmware time" : "Connecting to the local simulator…");
   display("boat-summary", boatDesign.summary(c));
-  const handheld = c.authorization === "diver_handheld";
+  const oneTap = c.authorization === "handheld_pickup";
+  const handheld = oneTap || c.authorization === "diver_handheld";
+  document.querySelector('[data-action="station_keep"]').hidden = !["ABORT","SETTING_STATION"].includes(s.state);
   display("operator-title", handheld ? "Simulation monitor · empty boat" : "Surface operator");
   document.querySelector('[data-action="approve"]').hidden = handheld;
   document.querySelector('[data-action="reject"]').hidden = handheld;
-  document.querySelector('[data-action="confirm"]').hidden = !handheld;
   const offer = handheld && Number.isFinite(downlink.meeting_range_m);
   el("offer").hidden = !handheld || !["IDLE", "STATION_KEEPING", "PICKUP_REQUESTED"].includes(s.state);
   display("offer", offer ? "Proposed meeting point: " + number(downlink.meeting_range_m, 0, " m") +
-    " from you at " + number(downlink.meeting_bearing_deg, 0, "° true") + ". Tap Confirm meeting point to start transit." :
+    " from you at " + number(downlink.meeting_bearing_deg, 0, "° true") + ". Request pickup sends the boat here." :
+    oneTap ? (s.offer_block_reason || "Waiting for the radio to deliver a reachable meeting point.") :
     s.state === "PICKUP_REQUESTED" ? "Request received. Waiting for a meeting-point offer over the radio." :
     "Request pickup to receive a meeting point on this handheld.");
   display("source", replay ? "Replay" : !connected ? "Disconnected" : preview() ? "Setup preview" : nice(s.status));
@@ -362,7 +364,7 @@ function render() {
   display("fidelity", s.fidelity === "L1" ? "L1 · Native motorboat" : s.fidelity === "L2" ? "L2 · Uncalibrated lancha" : s.fidelity || "—");
   display("clock", clock(s.sim_s));
   const pending = s.state === "PICKUP_REQUESTED";
-  display("mission", pending ? (handheld ? "Awaiting handheld confirmation" : "Awaiting surface operator approval") : nice(s.state));
+  display("mission", pending ? (handheld && !replay ? "Pickup requested" : nice(s.state)) : nice(s.state));
   display("mode", b.mode || "—");
   display("heartbeat-age", number(b.heartbeat_age_s, 1, " s"));
   display("fix-age", number(radio.fix_age_s, 1, " s"));
@@ -378,8 +380,9 @@ function render() {
   display("heading", number(b.heading_deg, 0, "°"));
   display("battery", number(b.voltage_v, 1, " V"));
   display("position-info", "Metres from the simulated origin. Boat " + coords(boat) + " · Diver " + coords(diver) + " · Candidate " + coords(target));
-  display("fault", s.fault || s.approval_block_reason || "");
-  el("fault").hidden = !(s.fault || s.approval_block_reason);
+  const feedback = s.state === "ABORT" ? [s.fault, s.station_block_reason || "Station keep here will hold the current position."].filter(Boolean).join(" · ") : s.fault || s.approval_block_reason;
+  display("fault", feedback || "");
+  el("fault").hidden = !feedback;
   const allEvents = replay ? (replay.events || []).filter(e => e.t <= s.sim_s) : s.events || [];
   const list = document.createDocumentFragment();
   for (const item of allEvents.slice(-60).reverse()) {
@@ -588,6 +591,14 @@ function drawMap() {
     ctx.fillText(txt, tx, ty);
   }
   ctx.font = "600 12px system-ui";
+  if (point(snapshot.station)) {
+    const station = snapshot.station;
+    ctx.beginPath();
+    ctx.arc(x(station.e), y(station.n), 9, 0, 2*Math.PI);
+    ctx.strokeStyle = "#b8e5c6";
+    ctx.stroke();
+    label(station, "Station", "#b8e5c6", 20);
+  }
   if (point(target)) {
     ctx.save();
     ctx.translate(x(target.e), y(target.n));

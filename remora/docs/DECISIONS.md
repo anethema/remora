@@ -16,10 +16,13 @@ No changes to Rover navigation, SITL physics or the pinned submodules are requir
 
 ## Design controls and empty-boat simulation
 
-The default interactive scenario now uses a surfaced-diver handheld for human authorization. A downstream proposal includes request identity and measurement time. A separate impaired uplink returns confirmation. The supervisor checks the current request, radio freshness and route before commanding actual SITL. The original two-operator L1 scenario remains independently reproducible.
+The default interactive scenario now uses a surfaced-diver handheld for human authorization. The downlink supplies a timestamped candidate. A single pickup uplink carries the displayed coordinates and offer time; no second handheld confirmation is required. The supervisor checks the current request, radio freshness and route before commanding actual SITL. The original two-operator L1 scenario remains independently reproducible. Saved empty-boat scenarios using the previous two-step authorization load into one-tap mode. Archived replay events retain the historical sequence.
 
 Use the isolated JSON backend to change actual plant behavior. The native model has fixed mass/thrust assumptions. The new uncalibrated plant accepts selectable single steerable, fixed-motor/rudder and twin differential arrangements. Keep UI wind direction meteorological FROM and current vectors TO. Keep physics units SI. The UI converts wind and ground speed to km/h and motor static thrust from lbf to N.
 
 The original uncalibrated steerable trial reached a no-progress fault. The 120 m fixed-motor/rudder trial also initially failed; the model had very little steering authority at low speed. Subsequent experiments added directional stability and yaw damping, selected lower simulated turn-rate/angle gains for the heavy hull, and included propeller slipstream for the downstream rudder. Preserve those assumptions for sensitivity analysis. All three arrangements then reached a separated short course, and the default steerable lancha reached the 1 km scenario's separated waypoint.
 
 For an empty, low-sided open skiff, a preliminary sensitivity set for **bow CdA** is 0.20, 0.35 and 0.60 m². The middle value illustrates 1.4 m assumed beam × 0.32 m average exposed height × 0.8 assumed drag coefficient. It is not a measured coefficient for a particular hull. The physical quantity is measured head-on above the loaded waterline. [Drag equation](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/drag-equation/)
+
+
+After a deliberate cancellation the user can send **Station keep here** over the same radio. The controller verifies fresh position, an armed plant with available propulsion, clear separation and Hold before requesting Loiter. A later position sample and a Loiter heartbeat confirm the state. The boat may move as it brakes. The aborted rendezvous is discarded; protective faults and simulated cutoff cannot trigger an automatic restart.

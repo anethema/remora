@@ -29,9 +29,7 @@ def exercise(config):
             if s["sim_s"] >= config["timeout_s"] and "abort" in actions:
                 engine.action("abort")
                 break
-            if "confirm" in actions:
-                engine.action("confirm")
-            elif "approve" in actions:
+            if "approve" in actions:
                 engine.action("approve")
             elif "request" in actions and s["sim_s"] - request_t >= 15:
                 engine.action("request")

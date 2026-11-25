@@ -26,7 +26,7 @@ const boatDesign = (() => {
   }
   function fill(scenario) {
     const d = {...defaults, ...scenario.boat_design};
-    get("authorization").value = scenario.authorization || "surface_operator";
+    get("authorization").value = scenario.authorization === "diver_handheld" ? "handheld_pickup" : scenario.authorization || "surface_operator";
     get("boat-model").value = d.model;
     for (const key of Object.keys(defaults)) {
       if (key === "model") continue;

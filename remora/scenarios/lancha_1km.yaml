@@ -29,4 +29,4 @@ boat_design:
   wind_from_deg: 0
   wind_cda_bow_m2: 0.7
   wind_cda_beam_m2: 2.0
-authorization: diver_handheld
+authorization: handheld_pickup

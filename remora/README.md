@@ -18,7 +18,7 @@ Open **http://127.0.0.1:8765/** from Windows. Select **Boat, motor & wind** at t
 - **Hull & steering** offers hull presets, loaded mass and length, a steerable motor, a fixed propeller with rudder, or twin differential thrust.
 - **Motor & battery** sets static lbf **per motor** with a newton equivalent, peak draw, battery chemistry and amp-hours.
 - **Wind & water** sets wind speed in km/h, wind-from direction in true degrees, bow and side wind resistance as CdA in m², and east/north water current. A 0° wind blows south. CdA is exposed projected area times drag coefficient. The default 0.7 m² bow value is an editable assumption.
-- **Apply scenario**, then choose **Start run**. For the default empty-boat scenario, press **Request pickup** on the virtual handheld, wait for a meeting-point offer, and choose **Confirm meeting point** on that same handheld. The boat steers toward the separate waypoint. A lost packet can be retried after the button becomes available. **Surface operator** remains an optional two-person test workflow.
+- **Apply scenario**, then choose **Start run**. For the default empty-boat scenario, wait for the virtual handheld to display a meeting point, then press **Request pickup** once. The radio request authorizes that exact point. The boat steers toward the separate waypoint. **Cancel pickup** requests Hold. After Hold is confirmed, **Station keep here** explicitly requests Loiter near the boat’s current position. A later pickup needs a new tap. A lost packet can be retried after the button becomes available. **Surface operator** remains an optional two-person test workflow.
 - To run the fixed native L1 reference instead, launch `./remora/scripts/run-sim.sh --scenario remora/scenarios/pickup_1km.yaml`. An active run archives on **Reset**. Edit the next run after the engine returns to idle. Ctrl+C closes the server and its child.
 
 Use the plot, metrics and telemetry selector to inspect a run. Download JSON for replay or CSV for a spreadsheet. **Open replay** loads saved samples into a separate read-only view. Live pause/resume is unavailable. The speed multiplier applies to the next launch. The handheld updates only when simulated packets arrive.
@@ -35,6 +35,7 @@ git remote add upstream https://github.com/ArduPilot/ardupilot.git
 ./remora/scripts/doctor.sh
 ./remora/scripts/run-tests.sh
 ./remora/scripts/run-tests.sh --smoke
+./remora/scripts/run-tests.sh --recovery -q
 ./remora/scripts/run-batch.sh --suite marine --seeds 1,2,3 --speedup 16
 ```
 

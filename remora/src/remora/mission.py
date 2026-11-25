@@ -50,7 +50,7 @@ class Packet:
 
 def channel(kind):
     # A late request cannot revive a newer cancellation.
-    return "control" if kind in ("request", "cancel", "confirm") else kind
+    return "control" if kind in ("request", "cancel", "station_keep") else kind
 
 
 class Mission:
@@ -89,8 +89,7 @@ class Mission:
         self.velocity = config["drift_e_mps"], config["drift_n_mps"]
         self.state = "STATION_KEEPING"
         self.fault = None
-        self.handheld = config.get("authorization") == "diver_handheld"
-        self._confirm_at = -math.inf
+        self.single_press = config.get("authorization") == "handheld_pickup"
         self._session = object()
         self._rng = random.Random(config["seed"])
         self._queue = []
@@ -100,6 +99,8 @@ class Mission:
         self._start = self._fix = self._telemetry = self._latency = None
         self._next_period = self._request_sent_at = -math.inf
         self._ack = "none"
+        self._station_sent = -math.inf
+        self._station_requested = None
         self._request = self._began = self._arrived = self._loiter_requested = None
         self._min_sep = self._station = None
         self._max_station_error = 0.0
@@ -138,7 +139,7 @@ class Mission:
             return False
         k, p = packet.kind, packet.payload
         if (
-            k not in ("request", "cancel", "status", "fix", "telemetry", "ack", "confirm")
+            k not in ("request", "cancel", "status", "fix", "telemetry", "ack", "station_keep")
             or type(packet.sequence) is not int
             or packet.sequence <= self._seen.get(channel(k), 0)
             or not finite(packet.sent)
@@ -146,14 +147,15 @@ class Mission:
             or not isinstance(p, dict)
         ):
             return False
+        if k == "request" and self.single_press:
+            if (
+                not finite(p.get("offer_t"))
+                or not 0 <= t - p["offer_t"] <= self.c["freshness_s"]
+                or (p.get("target_e"), p.get("target_n")) != self.target
+            ):
+                return False
         if k in ("fix", "request"):
             return all(finite(p.get(key)) for key in ("e", "n"))
-        if k == "confirm":
-            return (
-                type(p.get("request_id")) is int
-                and type(p.get("proposal_time")) in (int, float)
-                and 0 <= t - p["proposal_time"] <= self.c["freshness_s"]
-            )
         if k == "ack":
             return isinstance(p.get("text"), str)
         if k == "telemetry":
@@ -173,24 +175,36 @@ class Mission:
         if k in ("fix", "request") and (self._fix is None or packet.sent >= self._fix[0]):
             self._fix = packet.sent, (p["e"], p["n"])
         if k == "request" and self.state == "STATION_KEEPING":
-            self.state = "PICKUP_REQUESTED"
             self._request = packet.sequence
-            waiting = "handheld confirmation" if self.handheld else "surface operator approval"
-            self._event(t, f"Request {self._request} received; awaiting {waiting}")
-            self._send("ack", t, {"text": f"Request {self._request} received"})
-        elif k == "confirm":
-            if (
-                self.handheld
-                and self.state == "PICKUP_REQUESTED"
-                and p["request_id"] == self._request
-                and boat is not None
-            ):
+            if self.single_press:
+                if boat is None:
+                    return []
+                self._event(t, f"Pickup request {self._request} received with the displayed meeting point")
+                self._send("ack", t, {"text": f"Pickup {self._request} received"})
                 try:
                     return self._authorize(t, boat, "Surfaced diver")
                 except ValueError as exc:
-                    self._send("ack", t, {"text": str(exc)})
+                    self._send("ack", t, {"text": f"Pickup refused: {exc}"})
+                    return []
+            self.state = "PICKUP_REQUESTED"
+            self._event(t, f"Request {self._request} received; awaiting surface operator approval")
+            self._send("ack", t, {"text": f"Request {self._request} received"})
+        elif k == "station_keep" and self.state == "ABORT" and boat is not None:
+            reason = self._station_block(t, boat)
+            if reason:
+                self._event(t, f"Station keeping refused: {reason}")
+                self._send("ack", t, {"text": reason})
+                return []
+            self.state, self.fault = "SETTING_STATION", None
+            self._station = (boat["e"], boat["n"])
+            self._station_requested = t
+            self._request = self._began = self._arrived = self._loiter_requested = None
+            self._progress.clear()
+            self._event(t, "Station keep received; requested LOITER at the boat")
+            self._send("ack", t, {"text": "Station keep received"})
+            return [("loiter",)]
         elif k == "cancel":
-            if self.state in ("PICKUP_REQUESTED", "TRANSIT_TO_RENDEZVOUS", "RENDEZVOUS_HOLD"):
+            if self.state in ("PICKUP_REQUESTED", "TRANSIT_TO_RENDEZVOUS", "RENDEZVOUS_HOLD", "SETTING_STATION"):
                 return self._abort("Diver cancellation received", t, "ABORT")
             self._send("ack", t, {"text": "Cancellation received"})
         elif k == "status":
@@ -225,11 +239,13 @@ class Mission:
             return "Missing boat position or heartbeat"
         if min(boat["age_s"], boat["heartbeat_age_s"]) < 0 or boat["age_s"] > 2 or boat["heartbeat_age_s"] > 3:
             return "Stale boat position or heartbeat"
+        if (boat.get("plant") or {}).get("motor_cutoff"):
+            return "Simulated motor cutoff is latched"
         if not boat.get("armed"):
             return "Firmware reports disarmed"
         return None
 
-    def _unsafe(self, t, boat):
+    def _unsafe(self, t, boat, *, station=False):
         error = self._boat_error(boat)
         if error:
             return error
@@ -237,21 +253,27 @@ class Mission:
         if age is None or age > self.c["freshness_s"]:
             return "Diver fix stale or unavailable"
         start = boat["e"], boat["n"]
-        if any(abs(coord) > OPEN_WATER_HALF_WIDTH_M for point in (start, self.target) for coord in point):
+        destination = start if station else self.target
+        if any(abs(coord) > OPEN_WATER_HALF_WIDTH_M for point in (start, destination) for coord in point):
             return "Route leaves the known synthetic open-water area"
         _, fix = self._fix
         now = fix[0] + self.velocity[0] * age, fix[1] + self.velocity[1] * age
-        horizon = self.c["timeout_s"]
-        if self._began is not None:
+        horizon = self.c["freshness_s"] if station else self.c["timeout_s"]
+        if not station and self._began is not None:
             horizon = max(0.0, horizon - (t - self._began))
         # A sweep over the bounded transit conservatively includes every predicted hazard position.
         future = now[0] + self.velocity[0] * horizon, now[1] + self.velocity[1] * horizon
         if (
-            segments_distance(start, self.target, now, future)
+            segments_distance(start, destination, now, future)
             <= self.c["exclusion_m"] + self.c["uncertainty_m"] + ARRIVAL_M
         ):
             return "Route intersects the buffered diver exclusion region"
         return None
+
+    def _station_block(self, t, boat):
+        if boat.get("mode") != "HOLD":
+            return "Waiting for confirmed HOLD"
+        return self._unsafe(t, boat, station=True)
 
     def _eta(self, t):
         if self.state != "TRANSIT_TO_RENDEZVOUS" or len(self._progress) < 2:
@@ -265,6 +287,17 @@ class Mission:
 
     def action(self, action: str, t: float, boat: dict) -> list[tuple]:
         self._clock(t)
+        if action == "station_keep" and self.state == "ABORT":
+            reason = self._station_block(t, boat)
+            if reason:
+                raise ValueError(reason)
+            if t - self._station_sent < max(2.0, 3 * self.c["latency_s"]):
+                raise ValueError("Station keep request is in flight")
+            self._station_sent = t
+            self._send("station_keep", t, {})
+            self._event(t, "Handheld requested station keeping at current position")
+            self._ack = "Station keep sent"
+            return []
         if action == "status":
             self._send("status", t, {})
             return []
@@ -274,8 +307,17 @@ class Mission:
             if t - self._request_sent_at < self.c["freshness_s"]:
                 raise ValueError("A handheld request is already in flight")
             e, n = self._diver(t)
+            payload = {"e": e, "n": n}
+            if self.single_press:
+                if not self._visible_offer(t):
+                    raise ValueError("Waiting for a fresh separated meeting point on the handheld")
+                payload.update(
+                    offer_t=self._telemetry["t"],
+                    target_e=self._telemetry["target_e"],
+                    target_n=self._telemetry["target_n"],
+                )
             self._request_sent_at = t
-            seq = self._send("request", t, {"e": e, "n": n})
+            seq = self._send("request", t, payload)
             self._event(t, f"Handheld transmitted request {seq}")
             self._ack = f"Request {seq} sent"
             return []
@@ -284,28 +326,17 @@ class Mission:
             self._event(t, "Handheld transmitted cancellation")
             return []
         if self.state == "PICKUP_REQUESTED":
-            if action == "confirm" and self.handheld:
-                if not self._can_confirm(t):
-                    raise ValueError("Wait for a fresh rendezvous offer on the handheld")
-                self._confirm_at = t
-                self._send("confirm", t, {"request_id": self._request, "proposal_time": self._telemetry["t"]})
-                self._ack = "Confirmation sent"
-                self._event(t, "Surfaced diver transmitted rendezvous confirmation")
-                return []
             if action == "reject":
                 return self._abort("Operator rejected rendezvous", t, "ABORT")
-            if action == "approve" and not self.handheld:
+            if action == "approve" and not self.single_press:
                 return self._authorize(t, boat, "Surface operator")
         raise ValueError(f"{action} unavailable in {self.state}")
 
-    def _can_confirm(self, t):
+    def _visible_offer(self, t):
         packet = self._telemetry or {}
-        return (
-            packet.get("request_id") == self._request
-            and self._request is not None
-            and 0 <= t - packet["t"] <= self.c["freshness_s"]
-            and t - self._confirm_at >= max(2.0, 3 * self.c["latency_s"])
-        )
+        return (packet.get("target_e"), packet.get("target_n")) == self.target and 0 <= t - packet["t"] <= self.c[
+            "freshness_s"
+        ]
 
     def _authorize(self, t, boat, actor):
         reason = self._unsafe(t, boat)
@@ -333,10 +364,9 @@ class Mission:
                 e, n = boat["e"] - diver[0], boat["n"] - diver[1]
                 voltage = boat.get("voltage_v")
                 offer = {}
-                if self.handheld and self.state == "PICKUP_REQUESTED" and not self._unsafe(t, boat):
+                if self.single_press and self.state == "STATION_KEEPING" and not self._unsafe(t, boat):
                     de, dn = self.target[0] - diver[0], self.target[1] - diver[1]
                     offer = {
-                        "request_id": self._request,
                         "target_e": self.target[0],
                         "target_n": self.target[1],
                         "meeting_range_m": math.hypot(de, dn),
@@ -357,6 +387,19 @@ class Mission:
         while self._queue and self._queue[0][0] <= t:
             _, _, packet = heapq.heappop(self._queue)
             commands.extend(self._receive(packet, t, boat))
+        if self.state == "SETTING_STATION":
+            error = self._unsafe(t, boat, station=True)
+            if error:
+                return commands + self._abort(error, t, "FAULT")
+            if boat.get("mode") == "LOITER" and t > self._station_requested:
+                self.state = "STATION_KEEPING"
+                self._request_sent_at = -math.inf
+                self._event(t, "LOITER confirmed at the new station")
+                self._send("ack", t, {"text": "Station keeping here"})
+            elif t - self._station_requested > self.c["freshness_s"]:
+                return commands + self._abort("Station LOITER unconfirmed", t, "FAULT")
+            else:
+                return commands
         if has_position:
             here = boat["e"], boat["n"]
             separation = math.dist(here, diver)
@@ -430,21 +473,34 @@ class Mission:
         actions = ["status"]
         if self.state not in TERMINAL:
             actions.extend(["abort", "cancel"])
-        if self.state == "STATION_KEEPING" and t - self._request_sent_at >= self.c["freshness_s"]:
+        if (
+            self.state == "STATION_KEEPING"
+            and t - self._request_sent_at >= self.c["freshness_s"]
+            and (not self.single_press or self._visible_offer(t))
+        ):
             actions.append("request")
+        station_block = None
+        if self.state == "ABORT":
+            station_block = self._station_block(t, boat)
+            if not station_block and t - self._station_sent >= max(2.0, 3 * self.c["latency_s"]):
+                actions.append("station_keep")
         block_reason = None
         if self.state == "PICKUP_REQUESTED":
             block_reason = self._unsafe(t, boat)
             actions.append("reject")
             if block_reason is None:
-                if not self.handheld:
-                    actions.append("approve")
-                elif self._can_confirm(t):
-                    actions.append("confirm")
+                actions.append("approve")
         return {
             "state": self.state,
             "fault": self.fault,
             "approval_block_reason": block_reason,
+            "station_block_reason": station_block,
+            "station": {"e": self._station[0], "n": self._station[1]}
+            if self._station and self.state in ("STATION_KEEPING", "SETTING_STATION")
+            else None,
+            "offer_block_reason": self._unsafe(t, boat)
+            if self.single_press and self.state == "STATION_KEEPING"
+            else None,
             "diver": {"e": diver[0], "n": diver[1]},
             "target": {"e": self.target[0], "n": self.target[1]},
             "radio": {

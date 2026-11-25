@@ -41,6 +41,8 @@ jobs:
         run: ./remora/scripts/run-tests.sh --smoke
       - name: Separated rendezvous regression
         run: ./remora/scripts/run-batch.sh --suite marine --seeds 7 --speedup 12
+      - name: Empty-boat cancel and recovery on real SITL
+        run: ./remora/scripts/run-tests.sh --recovery -q
       - uses: actions/upload-artifact@v4
         if: always()
         with:

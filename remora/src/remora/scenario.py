@@ -47,7 +47,9 @@ def validate(raw):
         if field in ("seed", "speedup") and type(val) is not int:
             raise ValueError(f"{field} must be an integer")
     role = raw.get("authorization", "surface_operator")
-    if role not in ("surface_operator", "diver_handheld"):
+    if role == "diver_handheld":
+        role = "handheld_pickup"
+    if role not in ("surface_operator", "handheld_pickup"):
         raise ValueError("Unknown rendezvous authorization")
     return dict(raw, boat_design=design(raw.get("boat_design", DEFAULT_DESIGN)), authorization=role)
 
