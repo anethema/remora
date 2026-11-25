@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Remora | Marine simulation</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/design.js"></script>
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <header class="mast">
+    <div class="identity"><span class="mark" aria-hidden="true">≈</span><strong>Remora</strong><span class="mast-caption">Marine simulation</span></div>
+    <span class="sim-tag">Simulation only</span>
+  </header>
+  <main>
+    <div class="topline">
+      <div><h1>Rendezvous console</h1><p id="scenario-name">Connecting to the local simulator…</p><p id="boat-summary" class="caption"></p></div>
+      <div class="transport">
+        <button type="button" id="open-editor" disabled>Boat, motor &amp; wind</button>
+        <button type="button" data-action="start" class="primary" disabled>Start run</button>
+        <button type="button" data-action="reset" disabled>Reset</button>
+      </div>
+    </div>
+    <p class="notice" id="notice" role="status" hidden></p>
+    <section class="workspace">
+      <article class="panel map-card">
+        <div class="card-head"><h2>Situation plot</h2><div class="pills"><span id="source">Connecting</span><span id="fidelity">—</span></div></div>
+        <div class="plot-wrap"><canvas id="map" aria-label="North-up local east and north plot in metres. Boat, diver and candidate positions are also available as text below."></canvas>
+          <div class="plot-instruments"><span id="clock">—</span><span>SIM TIME</span></div>
+          <div class="zoom"><button type="button" id="zoom-in" aria-label="Zoom in">+</button><button type="button" id="zoom-out" aria-label="Zoom out">−</button><button type="button" id="fit">Fit</button></div>
+        </div>
+        <div class="legend"><span><i class="key boat-key"></i>Boat</span><span><i class="key diver-key"></i>Diver</span><span><i class="key target-key"></i>Rendezvous</span><span><i class="zone-key"></i>Exclusion + uncertainty</span></div>
+        <div class="tile-row">
+          <div><small>Separation</small><strong id="separation">—</strong></div>
+          <div><small>Ground speed</small><strong id="speed">—</strong></div>
+          <div><small>Heading</small><strong id="heading">—</strong></div>
+          <div><small>Battery</small><strong id="battery">—</strong></div>
+        </div>
+        <details class="positions"><summary>Local positions and plot controls</summary><p id="position-info"></p><p>Drag to pan. Use +, − and Fit to change scale. Before a run, click the plot to place a diver or rendezvous. The dotted diver line projects the configured drift for 60 seconds. Coordinates can also be entered in Scenario setup.</p><label>Click to place <select id="placement" disabled><option value="">Pan only</option><option value="diver">Diver start</option><option value="target">Rendezvous</option></select></label></details>
+      </article>
+      <aside class="side">
+        <article class="panel handheld">
+          <div class="card-head"><h2>Virtual handheld</h2><span class="radio-icon" aria-hidden="true">◉</span></div>
+          <div class="device"><small>Last radio acknowledgement</small><strong id="ack">—</strong><div><span>Boat range / bearing</span><b id="remote-range">—</b></div><div><span>Boat battery / ETA (m:ss)</span><b id="remote-energy">—</b></div><div><span>Telemetry age</span><b id="remote-age">—</b></div></div>
+          <p id="offer" class="caption" hidden></p><div class="buttons"><button type="button" class="primary" data-action="confirm" hidden disabled>Confirm meeting point</button><button type="button" class="primary" data-action="request" disabled>Request pickup</button><button type="button" data-action="cancel" disabled>Cancel</button><button type="button" data-action="status" disabled>Query status</button></div>
+        </article>
+        <article class="panel operator">
+          <div class="card-head"><h2 id="operator-title">Surface operator</h2></div>
+          <p class="mission-state" id="mission">—</p>
+          <dl class="readings"><dt>Firmware mode</dt><dd id="mode">—</dd><dt>Arming</dt><dd id="arming">—</dd><dt>Diver fix age</dt><dd id="fix-age">—</dd><dt>Firmware heartbeat age</dt><dd id="heartbeat-age">—</dd><dt>Isolation feedback</dt><dd id="isolation">Unavailable</dd></dl>
+          <p id="fault" class="fault" hidden></p>
+          <div class="buttons"><button type="button" data-action="approve" class="primary" disabled>Approve rendezvous</button><button type="button" data-action="reject" disabled>Reject</button><button type="button" data-action="abort" class="stop" disabled>Abort run</button></div>
+        </article>
+      </aside>
+    </section>
+    <section class="lower">
+      <article class="panel">
+        <div class="card-head"><h2>Telemetry history</h2><label class="sr" for="series">Telemetry series</label><select id="series"></select></div>
+        <canvas id="chart" aria-label="Selected telemetry quantity plotted against simulation time"></canvas><p id="series-summary" class="caption">Awaiting samples.</p>
+      </article>
+      <article class="panel">
+        <div class="card-head"><h2>Run log</h2><div class="exports"><a id="json-export" href="/api/export.json" download>JSON</a><a id="csv-export" href="/api/export.csv" download>CSV</a></div></div>
+        <div class="replay-tools"><label class="file-button">Open replay<input id="replay-file" type="file" accept="application/json,.json"></label><button type="button" id="play" hidden>Play</button><label id="timeline-label" hidden>Time <input id="timeline" type="range" min="0" max="0" value="0"></label><button type="button" id="return" hidden>Return to simulator</button></div>
+        <p id="metrics" class="caption"></p><ol id="events" aria-label="Recent run events"></ol>
+      </article>
+    </section>
+  </main>
+  <dialog id="editor">
+    <form id="scenario-form">
+      <div class="card-head"><h2>Boat, motor &amp; wind</h2><button type="button" id="close-editor" aria-label="Close scenario setup">×</button></div>
+      <div class="design-form" id="design-setup">
+<fieldset><legend>Simulation setup</legend><label>Boat model<select id="boat-model"><option value="lancha">Configurable lancha · L2</option><option value="native">Native reference boat · L1</option></select></label><label>Who confirms the meeting point?<select id="authorization"><option value="diver_handheld">Surfaced diver · empty boat</option><option value="surface_operator">Separate surface operator</option></select></label></fieldset>
+<p id="native-note" class="caption">Choose Configurable lancha to change hull, propulsion and weather.</p>
+<fieldset id="hull-controls"><legend>Experimental boat design</legend>
+<fieldset><legend>Hull & steering</legend><label>Hull preset<select id="hull-preset"><option value="light">Light · 3.0 m / 150 kg</option><option value="standard">Lancha · 3.7 m / 200 kg</option><option value="loaded">Loaded · 4.3 m / 250 kg</option><option value="custom">Custom dimensions</option></select></label><label>Hull length (m)<input type="number" id="length_m" min="2" max="6" step="any" required></label><label>Loaded mass (kg)<input type="number" id="mass_kg" min="80" max="650" step="any" required></label><label>Steering method<select id="steering"><option value="steerable">Single steerable motor</option><option value="rudder">Fixed motor and rudder</option><option value="differential">Twin differential thrust</option></select></label></fieldset>
+<fieldset><legend>Motor & battery</legend><label>Static thrust per motor (lbf)<input type="number" id="thrust_lbf" min="15" max="120" step="any" required></label><label>Maximum draw per motor (A)<input type="number" id="max_current_a" min="5" max="120" step="any" required></label><label>Battery chemistry<select id="battery"><option value="LiFePO4">LiFePO₄</option><option value="AGM">AGM lead-acid</option></select></label><label>Pack capacity (Ah)<input type="number" id="capacity_ah" min="20" max="400" step="any" required></label><small id="thrust-value"></small></fieldset>
+<fieldset><legend>Wind & water</legend><label>Wind speed (km/h)<input type="number" id="wind_speed_mps" min="0" max="72" step="any" required></label><label>Wind from (° true)<input type="number" id="wind_from_deg" min="0" max="360" step="any" required></label><label>Bow wind resistance · CdA (m²)<input type="number" id="wind_cda_bow_m2" min="0" max="12" step="any" required></label><label>Side wind resistance · CdA (m²)<input type="number" id="wind_cda_beam_m2" min="0" max="20" step="any" required></label><label>Eastward current (m/s)<input type="number" id="current_e_mps" min="-2" max="2" step="any" required></label><label>Northward current (m/s)<input type="number" id="current_n_mps" min="-2" max="2" step="any" required></label><small id="wind-value"></small><p class="caption">CdA is drag coefficient × exposed area. Increase the side value for more beam-on wind force. 0° is wind from north, 90° from east.</p></fieldset>
+</fieldset><p class="caption">Uncalibrated design study. Compare simulated motion and demand across runs.</p></div>
+<div class="form-body" id="fields"></div>
+      <div class="scenario-files"><label class="file-button">Load JSON<input type="file" accept=".json,.yaml,application/json" id="scenario-file"></label><button type="button" id="save-file">Save JSON</button></div>
+      <p id="form-status" role="status"></p>
+      <div class="form-footer"><button type="button" id="discard">Discard changes</button><button class="primary" type="submit">Apply scenario</button></div>
+    </form>
+  </dialog>
+</body>
+</html>

@@ -1,4 +1,5 @@
 """Run the calm-water L1 baseline against the built motorboat firmware."""
+
 # AP_FLAKE8_CLEAN
 import argparse
 import json
@@ -99,8 +100,10 @@ def main():
         artifacts.mkdir(parents=True, exist_ok=True)
         path = Path(tempfile.mkdtemp(prefix="smoke-", dir=artifacts))
     result = smoke(path, args.speedup)
-    print(f"PASS: waypoint residual {result['waypoint_residual_m']:.2f} m, "
-          f"LOITER excursion {result['loiter_max_excursion_m']:.2f} m, HOLD throttle {result['hold_throttle_pct']}%")
+    print(
+        f"PASS: waypoint residual {result['waypoint_residual_m']:.2f} m, "
+        f"LOITER excursion {result['loiter_max_excursion_m']:.2f} m, HOLD throttle {result['hold_throttle_pct']}%"
+    )
 
 
 if __name__ == "__main__":

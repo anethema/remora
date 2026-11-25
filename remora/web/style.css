@@ -732,3 +732,13 @@ dialog .card-head,
     scroll-behavior: auto
   }
 }
+
+.design-form {padding: 0 1.15rem}
+.design-form fieldset {border: 1px solid var(--line); border-radius: .5rem; margin:.55rem 0; padding:.65rem; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem}
+.design-form legend {font-weight:650; color:var(--green)}
+.design-form label {display:grid; gap:.25rem; font-size:.86rem}
+.design-form input,.design-form select {min-width:0;width:100%}
+.design-form #hull-controls {display:block}
+.design-form fieldset:disabled {opacity:.53}
+.design-form small,.design-form .caption {grid-column:1/-1}
+#boat-summary {margin-top:.25rem}

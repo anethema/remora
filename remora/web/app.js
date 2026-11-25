@@ -79,6 +79,7 @@ const fields = [
 ];
 
 function showForm(data) {
+  boatDesign.fill(data);
   if (!data || Array.isArray(data) || typeof data !== "object") throw Error("Select a scenario JSON object.");
   formDraft = {
     ...data
@@ -113,7 +114,7 @@ function showForm(data) {
 function formValue() {
   if (!el("scenario-form").reportValidity()) throw Error("Check the marked field.");
   const values = {
-    ...formDraft
+    ...formDraft, ...boatDesign.read()
   };
   el("fields").querySelectorAll("input").forEach(input => {
     values[input.name] = input.type === "number" ? input.valueAsNumber : input.value.trim();
@@ -208,6 +209,11 @@ function renderControls() {
     b.disabled = !!replay || busy || !connected || !snapshot.actions?.includes(b.dataset.action);
   }
   el("open-editor").disabled = !canEdit() || !scenario;
+  el("open-editor").title = canEdit() ? "Change hull, steering, motor and wind" : "Reset the run to edit the next scenario";
+  if (location.hash === "#boat-setup" && canEdit() && scenario) {
+    history.replaceState(null, "", location.pathname);
+    queueMicrotask(() => el("open-editor").click());
+  }
   el("placement").disabled = !canEdit();
   if (!canEdit()) el("placement").value = "";
   const replayInput = el("replay-file");
@@ -311,7 +317,9 @@ function geometryPoints() {
   };
 }
 const series = [
-  ["Ground speed", "m/s", s => s.boat?.speed_mps],
+  ["Ground speed", "km/h", s => Number.isFinite(s.boat?.speed_mps) ? s.boat.speed_mps * 3.6 : null],
+  ["Model thrust", "N", s => s.boat?.plant?.thrust_n],
+  ["Model energy", "Wh", s => s.boat?.plant?.energy_wh],
   ["Battery voltage", "V", s => s.boat?.voltage_v],
   ["Battery current", "A", s => s.boat?.current_a],
   ["Charge remaining", "%", s => s.boat?.soc_pct],
@@ -337,9 +345,20 @@ function render() {
   const downlink = radio.telemetry || {};
   const c = activeScenario();
   display("scenario-name", c.name ? c.name + " · Seed " + c.seed + " · " + c.speedup + "× firmware time" : "Connecting to the local simulator…");
+  display("boat-summary", boatDesign.summary(c));
+  const handheld = c.authorization === "diver_handheld";
+  display("operator-title", handheld ? "Simulation monitor · empty boat" : "Surface operator");
+  document.querySelector('[data-action="approve"]').hidden = handheld;
+  document.querySelector('[data-action="reject"]').hidden = handheld;
+  document.querySelector('[data-action="confirm"]').hidden = !handheld;
+  const offer = handheld && Number.isFinite(downlink.meeting_range_m);
+  el("offer").hidden = !handheld;
+  display("offer", offer ? "Proposed meeting point: " + number(downlink.meeting_range_m, 0, " m") +
+    " from you at " + number(downlink.meeting_bearing_deg, 0, "° true") :
+    "Request pickup to receive a meeting point on this handheld.");
   display("source", replay ? "Replay" : !connected ? "Disconnected" : preview() ? "Setup preview" : nice(s.status));
   el("source").dataset.replay = String(!!replay);
-  display("fidelity", s.fidelity === "L1" ? "L1 · Native motorboat" : s.fidelity || "—");
+  display("fidelity", s.fidelity === "L1" ? "L1 · Native motorboat" : s.fidelity === "L2" ? "L2 · Uncalibrated lancha" : s.fidelity || "—");
   display("clock", clock(s.sim_s));
   display("mission", nice(s.state));
   display("mode", b.mode || "—");
@@ -353,7 +372,7 @@ function render() {
   display("remote-age", Number.isFinite(downlink.t) && Number.isFinite(s.sim_s) ? number(Math.max(0, s.sim_s - downlink.t), 1, " s") : "—");
   const previewRange = preview() && point(diver) ? Math.hypot(diver.e, diver.n) : null;
   display("separation", number(preview() ? previewRange : s.separation_m, 0, " m"));
-  display("speed", number(b.speed_mps, 1, " m/s"));
+  display("speed", number(Number.isFinite(b.speed_mps) ? 3.6 * b.speed_mps : null, 1, " km/h"));
   display("heading", number(b.heading_deg, 0, "°"));
   display("battery", number(b.voltage_v, 1, " V"));
   display("position-info", "Metres from the simulated origin. Boat " + coords(boat) + " · Diver " + coords(diver) + " · Candidate " + coords(target));
@@ -383,6 +402,7 @@ function render() {
   if (outcome) metrics.push(nice(outcome));
   if (Number.isFinite(m.minimum_separation_m)) metrics.push("Minimum separation " + number(m.minimum_separation_m, 0, " m"));
   if (Number.isFinite(m.time_to_rendezvous_s)) metrics.push("Rendezvous time " + clock(m.time_to_rendezvous_s));
+  if (Number.isFinite(m.energy_used_wh)) metrics.push("Energy " + number(m.energy_used_wh, 1, " Wh"));
   display("metrics", metrics.join(" · "));
   el("metrics").hidden = !metrics.length;
   renderControls();

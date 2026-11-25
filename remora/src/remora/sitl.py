@@ -1,4 +1,5 @@
 """One isolated, owned ArduRover SITL child and its private MAVLink channel."""
+
 # AP_FLAKE8_CLEAN
 import hashlib
 import json
@@ -7,6 +8,7 @@ import os
 import select
 import signal
 import subprocess
+import sys
 import time
 import tty
 from dataclasses import dataclass, replace
@@ -40,11 +42,12 @@ class Telemetry:
 class Sitl:
     """Single-threaded. Every command goes to a newly allocated kernel PTY."""
 
-    def __init__(self, run_dir: Path, speedup: int = 8, cancel: Event | None = None):
+    def __init__(self, run_dir: Path, speedup: int = 8, cancel: Event | None = None, boat_design=None):
         if not 1 <= speedup <= 32:
             raise ValueError("speedup must be between 1 and 32")
         self.run_dir = Path(run_dir).resolve()
         self.speedup = speedup
+        self.plant = boat_design if boat_design and boat_design["model"] == "lancha" else None
         self.cancel = cancel
         self.work = self.run_dir / "firmware"
         self.process = self.file = self.log = self.raw = None
@@ -76,21 +79,65 @@ class Sitl:
                 self.mav.set_send_callback(self._log_packet)
                 native = ROOT / "Tools/autotest/default_params"
                 defaults = [native / "rover.parm", native / "motorboat.parm", ROOT / "remora/configs/calm.parm"]
+                runner = [str(binary)]
+                model = "motorboat"
+                if self.plant:
+                    model = "JSON:127.0.0.1"
+                    (self.work / "design.json").write_text(json.dumps(self.plant))
+                    twin = self.plant["steering"] == "differential"
+                    profile = self.work / "plant.parm"
+                    profile.write_text(
+                        f"SERVO1_FUNCTION {73 if twin else 26}\nSERVO3_FUNCTION {74 if twin else 70}\n"
+                        f"BATT_CAPACITY {round(1000 * self.plant['capacity_ah'])}\n"
+                        "CRUISE_SPEED 1.8\nCRUISE_THROTTLE 65\nWP_SPEED 1.8\n"
+                        "ATC_STR_RAT_MAX 24\nATC_STR_ANG_P 0.65\nATC_STR_RAT_I 0.12\n"
+                        "ATC_ACCEL_MAX 0.7\nATC_DECEL_MAX 0.7\nSIM_RATE_HZ 200\n"
+                    )
+                    defaults.append(profile)
+                    runner = [sys.executable, "-m", "remora.fdm", str(self.work / "design.json"), str(binary)]
                 # Each namespace has only loopback. The firmware RC socket also stays inside it.
-                args = ["setpriv", "--pdeathsig", "KILL", "unshare", "--user", "--map-root-user", "--net", "sh", "-ec",
-                        'ip link set lo up; exec "$@"', "remora-sitl", str(binary),
-                        "--model", "motorboat", "--home", "20.0,-110.0,0,0", "--wipe",
-                        "--speedup", str(self.speedup), "--serial0", f"uart:{os.ttyname(slave)}:115200",
-                        "--defaults", ",".join(map(str, defaults))]
+                args = [
+                    "setpriv",
+                    "--pdeathsig",
+                    "KILL",
+                    "unshare",
+                    "--user",
+                    "--map-root-user",
+                    "--net",
+                    "sh",
+                    "-ec",
+                    'ip link set lo up; exec "$@"',
+                    "remora-sitl",
+                    *runner,
+                    "--model",
+                    model,
+                    "--home",
+                    "20.0,-110.0,0,0",
+                    "--wipe",
+                    "--speedup",
+                    str(self.speedup),
+                    "--serial0",
+                    f"uart:{os.ttyname(slave)}:115200",
+                    "--defaults",
+                    ",".join(map(str, defaults)),
+                ]
                 for port in (1, 2, 5, 6, 7, 8):
                     args.extend([f"--serial{port}", "none"])
                 self.identity = {
-                    "argv": args, "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
-                    "upstream": PIN, "speedup": self.speedup,
+                    "argv": args,
+                    "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
+                    "upstream": PIN,
+                    "speedup": self.speedup,
                     "profiles": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in defaults},
                 }
-                self.process = subprocess.Popen(args, cwd=self.work, stdin=subprocess.DEVNULL,
-                                                stdout=self.log, stderr=subprocess.STDOUT, start_new_session=True)
+                self.process = subprocess.Popen(
+                    args,
+                    cwd=self.work,
+                    stdin=subprocess.DEVNULL,
+                    stdout=self.log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
             finally:
                 # Keep a slave FD until firmware has opened it, avoiding a transient EIO on the master.
                 self.slave = slave
@@ -197,12 +244,16 @@ class Sitl:
         heartbeat = self.last["HEARTBEAT"]
         if heartbeat.type != mav.MAV_TYPE_SURFACE_BOAT or heartbeat.autopilot != mav.MAV_AUTOPILOT_ARDUPILOTMEGA:
             raise RuntimeError("Expected ArduPilot surface boat")
-        self._wait(lambda: "AUTOPILOT_VERSION" in self.last, "No firmware version",
-                   send=lambda: self._cmd(mav.MAV_CMD_REQUEST_MESSAGE, mav.MAVLINK_MSG_ID_AUTOPILOT_VERSION))
+        self._wait(
+            lambda: "AUTOPILOT_VERSION" in self.last,
+            "No firmware version",
+            send=lambda: self._cmd(mav.MAV_CMD_REQUEST_MESSAGE, mav.MAVLINK_MSG_ID_AUTOPILOT_VERSION),
+        )
         version = self.last["AUTOPILOT_VERSION"]
         revision = bytes(version.flight_custom_version).decode("ascii").rstrip("\x00")
-        self.identity.update(firmware_revision=revision, flight_sw_version=hex(version.flight_sw_version),
-                             vehicle_type=heartbeat.type)
+        self.identity.update(
+            firmware_revision=revision, flight_sw_version=hex(version.flight_sw_version), vehicle_type=heartbeat.type
+        )
         self._save_identity()
         if version.flight_sw_version >> 8 != 0x040703 or not revision:
             raise RuntimeError(f"Unexpected Rover firmware version {self.identity}")
@@ -214,15 +265,37 @@ class Sitl:
         def navigation_ready():
             gps = self.last.get("GPS_RAW_INT")
             state = self.last.get("SYS_STATUS")
-            return (gps and gps.fix_type >= 3 and self.data.lat is not None and self.data.lat != 0 and state and
-                    state.onboard_control_sensors_health & mav.MAV_SYS_STATUS_PREARM_CHECK)
+            return (
+                gps
+                and gps.fix_type >= 3
+                and self.data.lat is not None
+                and self.data.lat != 0
+                and state
+                and state.onboard_control_sensors_health & mav.MAV_SYS_STATUS_PREARM_CHECK
+            )
+
         self._wait(navigation_ready, "Waiting for GNSS and all normal pre-arm checks", timeout=110)
-        expected = {"FRAME_CLASS": 2, "ARMING_SKIPCHK": 0, "ARMING_REQUIRE": 1, "SIM_TIDE_SPEED": 0,
-                    "SIM_WIND_SPD": 0, "SIM_WIND_T": 0, "SIM_WAVE_ENABLE": 0, "SERVO1_FUNCTION": 26,
-                    "SERVO3_FUNCTION": 70}
+        expected = {
+            "FRAME_CLASS": 2,
+            "ARMING_SKIPCHK": 0,
+            "ARMING_REQUIRE": 1,
+            "SIM_TIDE_SPEED": 0,
+            "SIM_WIND_SPD": 0,
+            "SIM_WIND_T": 0,
+            "SIM_WAVE_ENABLE": 0,
+            "SERVO1_FUNCTION": 26,
+            "SERVO3_FUNCTION": 70,
+        }
+        if self.plant:
+            expected["BATT_CAPACITY"] = round(1000 * self.plant["capacity_ah"])
+            if self.plant["steering"] == "differential":
+                expected.update(SERVO1_FUNCTION=73, SERVO3_FUNCTION=74)
         for name, value in expected.items():
-            self._wait(lambda: name in self.params, f"Missing parameter {name}",
-                       send=lambda: self.mav.param_request_read_send(1, 1, name.encode(), -1))
+            self._wait(
+                lambda: name in self.params,
+                f"Missing parameter {name}",
+                send=lambda: self.mav.param_request_read_send(1, 1, name.encode(), -1),
+            )
             if self.params[name] != value:
                 raise RuntimeError(f"Unexpected {name}={self.params[name]}, expected {value}")
         self.mode("HOLD")
@@ -234,12 +307,16 @@ class Sitl:
         if name not in {"HOLD", "LOITER", "GUIDED"}:
             raise ValueError(f"Unsupported mode {name}")
         number = next(k for k, v in MODES.items() if v == name)
-        self._wait(lambda: self.data.mode == name, f"Mode {name} was not confirmed",
-                   send=lambda: self.mav.set_mode_send(1, mav.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, number))
+        self._wait(
+            lambda: self.data.mode == name,
+            f"Mode {name} was not confirmed",
+            send=lambda: self.mav.set_mode_send(1, mav.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, number),
+        )
 
     def arm(self):
-        self._wait(lambda: self.data.armed, "Firmware did not arm",
-                   send=lambda: self._cmd(mav.MAV_CMD_COMPONENT_ARM_DISARM, 1))
+        self._wait(
+            lambda: self.data.armed, "Firmware did not arm", send=lambda: self._cmd(mav.MAV_CMD_COMPONENT_ARM_DISARM, 1)
+        )
 
     def target(self, lat: float, lon: float):
         if self.data.mode != "GUIDED" or not self.data.armed:
@@ -248,15 +325,34 @@ class Sitl:
             raise ValueError("Invalid WGS84 target")
         self.last.pop("POSITION_TARGET_GLOBAL_INT", None)
         self.mav.set_position_target_global_int_send(
-            0, 1, 1, mav.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, 0x0DF8,
-            round(lat * 1e7), round(lon * 1e7), 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0,
+            1,
+            1,
+            mav.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT,
+            0x0DF8,
+            round(lat * 1e7),
+            round(lon * 1e7),
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        )
 
         def echoed_target():
             echo = self.last.get("POSITION_TARGET_GLOBAL_INT")
             return echo and abs(echo.lat_int - round(lat * 1e7)) <= 2 and abs(echo.lon_int - round(lon * 1e7)) <= 2
 
-        self._wait(echoed_target, "Firmware did not echo the requested waypoint", timeout=6,
-                   send=lambda: self._cmd(mav.MAV_CMD_REQUEST_MESSAGE, mav.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT))
+        self._wait(
+            echoed_target,
+            "Firmware did not echo the requested waypoint",
+            timeout=6,
+            send=lambda: self._cmd(mav.MAV_CMD_REQUEST_MESSAGE, mav.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT),
+        )
 
     def dump_params(self):
         self.param_indices.clear()
