@@ -1,6 +1,7 @@
 """One isolated, owned ArduRover SITL child and its private MAVLink channel."""
 
 # AP_FLAKE8_CLEAN
+import fcntl
 import hashlib
 import json
 import math
@@ -55,7 +56,7 @@ class Sitl:
         self.plant = boat_design if boat_design and boat_design["model"] == "lancha" else None
         self.cancel = cancel
         self.work = self.run_dir / "firmware"
-        self.process = self.file = self.log = self.raw = None
+        self.process = self.file = self.log = self.raw = self.run_lock = None
         self.data = Telemetry()
         self.heartbeat_at = self.position_at = -math.inf
         self.last_gcs = -math.inf
@@ -73,6 +74,14 @@ class Sitl:
         # A per-run directory keeps DataFlash, EEPROM and parameters private.
         self.work.mkdir(parents=True, exist_ok=False)
         try:
+            # Serialize every Remora entry point and checkout for this WSL/Linux user.
+            lock_dir = Path.home() / ".cache/remora"
+            lock_dir.mkdir(parents=True, exist_ok=True)
+            self.run_lock = (lock_dir / "simulator.lock").open("a+b")
+            try:
+                fcntl.flock(self.run_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise RuntimeError("A Remora simulation is already running. End that run before starting another.") from exc
             self.log = (self.work / "stdout.log").open("wb")
             self.raw = (self.work / "telemetry.tlog").open("wb")
             master, slave = os.openpty()
@@ -173,6 +182,9 @@ class Sitl:
         if getattr(self, "slave", None) is not None:
             os.close(self.slave)
             self.slave = None
+        if self.run_lock:
+            self.run_lock.close()
+            self.run_lock = None
 
     def poll(self, timeout: float = 0.1) -> Telemetry:
         if self.cancel is not None and self.cancel.is_set():

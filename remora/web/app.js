@@ -337,8 +337,17 @@ function renderRendezvousUpdate(s, handheld, downlink) {
   const active = ["TRANSIT_TO_RENDEZVOUS", "RENDEZVOUS_HOLD"].includes(s.state);
   const update = s.radio?.update;
   const button = document.querySelector('[data-action="update_rendezvous"]');
-  button.hidden = !handheld || !active || !!replay;
-  button.title = s.update_block_reason || "Send one fresh diver position to update the separated meeting point";
+  button.hidden = !handheld || !!replay;
+  let blocked = s.update_block_reason;
+  if (active && !replay && !Object.hasOwn(s, "update_block_reason")) {
+    blocked = "This run uses an older simulator. Start a new run on the updated simulator to change the meeting point.";
+  } else if (!active && !replay) {
+    blocked = s.status === "IDLE" ? "Start the simulation and request pickup to enable coordinate updates."
+      : s.state === "STATION_KEEPING" ? "Request pickup to enable coordinate updates."
+      : "Coordinate updates are available during pickup and rendezvous hold.";
+  }
+  if (!connected && !replay) blocked = "Waiting for the local simulator connection.";
+  button.title = blocked || "Send one fresh diver position to update the separated meeting point";
   const hasMeeting = handheld && active && downlink.meeting_active === true &&
     Number.isFinite(downlink.meeting_range_m) && Number.isFinite(downlink.meeting_bearing_deg);
   el("active-meeting").hidden = !hasMeeting;
@@ -348,7 +357,6 @@ function renderRendezvousUpdate(s, handheld, downlink) {
   }
 
   const status = el("update-status");
-  const blocked = active && s.update_block_reason;
   status.hidden = !handheld || (!update && !blocked);
   if (status.hidden) return;
   if (!update) {

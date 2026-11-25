@@ -23,6 +23,8 @@ Open **http://127.0.0.1:8765/** from Windows. Select **Boat, motor & wind** at t
 
 During a handheld pickup or rendezvous hold, press **Update rendezvous** after drifting. It sends your current fix and moves the meeting point by the same east/north displacement. **Station keep here** switches the boat back to holding its current area. Single-motor lancha profiles turn bow-first and apply forward thrust.
 
+Use one simulator at a time. The dashboard, batch runner and firmware tests share a per-user lock on WSL and Linux. Stop the running simulation before starting firmware tests.
+
 Use the plot, metrics and telemetry selector to inspect a run. Download JSON for replay or CSV for a spreadsheet. **Open replay** loads saved samples into a separate read-only view. Live pause/resume is unavailable. The speed multiplier applies to the next launch. The handheld updates only when simulated packets arrive.
 
 ## Fresh installation
