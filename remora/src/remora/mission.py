@@ -175,7 +175,8 @@ class Mission:
         if k == "request" and self.state == "STATION_KEEPING":
             self.state = "PICKUP_REQUESTED"
             self._request = packet.sequence
-            self._event(t, f"Request {self._request} received; awaiting operator approval")
+            waiting = "handheld confirmation" if self.handheld else "surface operator approval"
+            self._event(t, f"Request {self._request} received; awaiting {waiting}")
             self._send("ack", t, {"text": f"Request {self._request} received"})
         elif k == "confirm":
             if (

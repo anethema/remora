@@ -14,6 +14,8 @@ if [[ ! -x remora/.venv/bin/python ]]; then
     else echo 'Set PYTHON to a Python 3.11 or 3.12 interpreter with venv.' >&2; exit 1; fi
 fi
 source remora/.venv/bin/activate
+# Waf also consults PYTHON when choosing its code-generator interpreter.
+export PYTHON="$VIRTUAL_ENV/bin/python"
 python -m pip install -r remora/requirements.lock
 ./waf configure --board sitl
 ./waf rover -j"${JOBS:-8}"

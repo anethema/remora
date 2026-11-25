@@ -352,15 +352,17 @@ function render() {
   document.querySelector('[data-action="reject"]').hidden = handheld;
   document.querySelector('[data-action="confirm"]').hidden = !handheld;
   const offer = handheld && Number.isFinite(downlink.meeting_range_m);
-  el("offer").hidden = !handheld;
+  el("offer").hidden = !handheld || !["IDLE", "STATION_KEEPING", "PICKUP_REQUESTED"].includes(s.state);
   display("offer", offer ? "Proposed meeting point: " + number(downlink.meeting_range_m, 0, " m") +
-    " from you at " + number(downlink.meeting_bearing_deg, 0, "° true") :
+    " from you at " + number(downlink.meeting_bearing_deg, 0, "° true") + ". Tap Confirm meeting point to start transit." :
+    s.state === "PICKUP_REQUESTED" ? "Request received. Waiting for a meeting-point offer over the radio." :
     "Request pickup to receive a meeting point on this handheld.");
   display("source", replay ? "Replay" : !connected ? "Disconnected" : preview() ? "Setup preview" : nice(s.status));
   el("source").dataset.replay = String(!!replay);
   display("fidelity", s.fidelity === "L1" ? "L1 · Native motorboat" : s.fidelity === "L2" ? "L2 · Uncalibrated lancha" : s.fidelity || "—");
   display("clock", clock(s.sim_s));
-  display("mission", nice(s.state));
+  const pending = s.state === "PICKUP_REQUESTED";
+  display("mission", pending ? (handheld ? "Awaiting handheld confirmation" : "Awaiting surface operator approval") : nice(s.state));
   display("mode", b.mode || "—");
   display("heartbeat-age", number(b.heartbeat_age_s, 1, " s"));
   display("fix-age", number(radio.fix_age_s, 1, " s"));
@@ -440,6 +442,20 @@ function line(ctx, x1, y1, x2, y2, color, width = 1) {
   ctx.stroke();
 }
 
+function flowArrow(ctx, x, y, east, north, label, colour) {
+  if (Math.hypot(east, north) < 0.001) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.atan2(east, north));
+  line(ctx, 0, 8, 0, -8, colour, 2);
+  line(ctx, 0, -8, 4, -2, colour, 2);
+  line(ctx, 0, -8, -4, -2, colour, 2);
+  ctx.restore();
+  ctx.fillStyle = colour;
+  ctx.font = "11px system-ui";
+  ctx.fillText(label, x + 14, y + 4);
+}
+
 function stepSize(raw) {
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const scaled = raw / magnitude;
@@ -516,6 +532,14 @@ function drawMap() {
   line(ctx, w - 20, 26, w - 20, 45, "#c6dccc", 1.6);
   line(ctx, w - 20, 26, w - 24, 32, "#c6dccc", 1.6);
   line(ctx, w - 20, 26, w - 16, 32, "#c6dccc", 1.6);
+  const design = c.boat_design;
+  if (design?.model === "lancha") {
+    const rad = design.wind_from_deg * Math.PI / 180;
+    flowArrow(ctx, w / 2 - 48, 18, -design.wind_speed_mps * Math.sin(rad), -design.wind_speed_mps * Math.cos(rad),
+      "Wind " + number(design.wind_speed_mps * 3.6, 1, " km/h"), "#c3e5fb");
+    flowArrow(ctx, w / 2 - 48, 41, design.current_e_mps, design.current_n_mps,
+      "Current " + number(Math.hypot(design.current_e_mps, design.current_n_mps), 1, " m/s"), "#b8e5c6");
+  }
   if (point(diver) && radius > 0) {
     ctx.beginPath();
     ctx.arc(x(diver.e), y(diver.n), radius / scale, 0, 2 * Math.PI);
