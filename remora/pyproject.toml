@@ -1,0 +1,10 @@
+[project]
+name = "project-remora"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Offline operator-supervised Rover SITL surface boat experiments"
+license = "GPL-3.0-or-later"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

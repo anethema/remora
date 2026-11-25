@@ -1,0 +1,16 @@
+schema_version: 1
+name: Separated rendezvous at 1 km
+seed: 7
+speedup: 4
+diver_e_m: 1000
+diver_n_m: 0
+drift_e_mps: 0
+drift_n_mps: 0.025
+target_e_m: 900
+target_n_m: 0
+exclusion_m: 45
+uncertainty_m: 8
+latency_s: 0.35
+loss: 0.02
+freshness_s: 12
+timeout_s: 1200

@@ -1,0 +1,734 @@
+:root {
+  --page: #f2f3ee;
+  --panel: #fffefa;
+  --ink: #182f32;
+  --muted: #52666a;
+  --line: #cbd5cf;
+  --green: #18594e;
+  --plot: #123339;
+  --mint: #7de0b3;
+  --coral: #f8a47c;
+  --gold: #edcc70;
+  font: 15px/1.45 "Inter", "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--page)
+}
+
+* {
+  box-sizing: border-box
+}
+
+body {
+  margin: 0
+}
+
+button,
+input,
+select {
+  font: inherit
+}
+
+button,
+a,
+.file-button,
+summary {
+  touch-action: manipulation
+}
+
+button,
+select,
+input,
+.file-button {
+  border: 1px solid #aabcb3;
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--ink)
+}
+
+button,
+.file-button {
+  padding: .53rem .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap
+}
+
+button:hover:not(:disabled),
+.file-button:hover {
+  background: #e7eee7
+}
+
+button:disabled,
+select:disabled {
+  opacity: .45;
+  cursor: default
+}
+
+.primary {
+  background: var(--green);
+  color: white;
+  border-color: var(--green)
+}
+
+.primary:hover:not(:disabled) {
+  background: #0c483f
+}
+
+.stop {
+  color: #8d3a28;
+  border-color: #be8777
+}
+
+button:focus-visible,
+select:focus-visible,
+a:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+.file-button:focus-within {
+  outline: 3px solid #ec944e;
+  outline-offset: 3px
+}
+
+.mast {
+  min-height: 60px;
+  padding: 0 max(5vw, 22px);
+  background: #14393a;
+  color: #effbee;
+  display: flex;
+  align-items: center;
+  justify-content: space-between
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  line-height: 1
+}
+
+.identity strong {
+  font-size: 1.4rem;
+  letter-spacing: -.05em
+}
+
+.mark {
+  color: var(--mint);
+  font: bold 2.5rem/.8 Georgia, serif;
+  transform: rotate(-10deg)
+}
+
+.mast-caption {
+  font-size: .83rem;
+  border-left: 1px solid #57807a;
+  padding-left: 1rem;
+  margin-left: .5rem;
+  color: #d5e3da
+}
+
+.sim-tag,
+.pills span {
+  font: 600 .73rem/1.1 "IBM Plex Mono", Consolas, monospace;
+  letter-spacing: .04em;
+  text-transform: uppercase
+}
+
+.sim-tag {
+  border: 1px solid #65968b;
+  padding: .4rem .6rem;
+  border-radius: 4px;
+  color: #b5f2c7
+}
+
+main {
+  max-width: 1610px;
+  margin: auto;
+  padding: 2.4rem max(5vw, 22px) 3rem
+}
+
+.topline,
+.card-head,
+.transport,
+.buttons,
+.pills,
+.exports,
+.legend,
+.scenario-files,
+.form-footer {
+  display: flex;
+  align-items: center;
+  gap: .5rem
+}
+
+.topline,
+.card-head {
+  justify-content: space-between
+}
+
+.topline {
+  gap: 1rem;
+  margin-bottom: 1.6rem
+}
+
+.topline h1 {
+  font-size: clamp(1.9rem, 3.2vw, 3rem);
+  font-weight: 650;
+  letter-spacing: -.065em;
+  line-height: 1.1;
+  margin: 0
+}
+
+.topline p {
+  margin: .45rem 0 0;
+  color: var(--muted)
+}
+
+.workspace,
+.lower {
+  display: grid;
+  gap: 1rem
+}
+
+.workspace {
+  grid-template-columns: minmax(0, 1.85fr) minmax(17.5rem, 1fr);
+  align-items: start
+}
+
+.side {
+  display: grid;
+  gap: 1rem
+}
+
+.panel {
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden
+}
+
+.card-head {
+  padding: 1rem 1.2rem;
+  min-height: 3.8rem
+}
+
+.card-head h2 {
+  font-size: 1.15rem;
+  line-height: 1.25;
+  letter-spacing: -.035em;
+  margin: 0
+}
+
+.pills span {
+  color: #385d50;
+  background: #e7efe7;
+  padding: .34rem .43rem;
+  border-radius: 3px;
+  letter-spacing: 0
+}
+
+.pills [data-replay=true] {
+  background: #f3e7c5;
+  color: #624d19
+}
+
+.notice,
+.fault {
+  border-left: 3px solid #cb733d;
+  background: #fff0dd;
+  color: #723d25;
+  padding: .7rem 1rem
+}
+
+.plot-wrap {
+  height: clamp(300px, 31vw, 455px);
+  min-width: 0;
+  position: relative;
+  background: var(--plot)
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab
+}
+
+#map:active {
+  cursor: grabbing
+}
+
+.plot-instruments,
+.zoom {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: .35rem
+}
+
+.plot-instruments {
+  top: 13px;
+  left: 15px;
+  flex-direction: column;
+  align-items: start;
+  gap: 0;
+  padding: 3px 6px 3px 0;
+  color: #cde5d9;
+  background: var(--plot);
+  font: 500 .7rem/1.4 Consolas, monospace
+}
+
+.plot-instruments #clock {
+  font-size: 1rem;
+  color: #fff
+}
+
+.zoom {
+  right: 12px;
+  bottom: 12px
+}
+
+.zoom button {
+  height: 30px;
+  padding: 0 .55rem;
+  background: #163b3e;
+  border-color: #79928b;
+  color: #fff
+}
+
+.zoom button:hover {
+  background: #2b5655
+}
+
+.legend {
+  flex-wrap: wrap;
+  padding: .7rem 1.2rem;
+  border-bottom: 1px solid var(--line);
+  font-size: .79rem;
+  color: var(--muted);
+  gap: .25rem 1.05rem
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem
+}
+
+.key,
+.zone-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px
+}
+
+.boat-key {
+  background: #287663;
+  clip-path: polygon(50% 0, 100% 100%, 50% 73%, 0 100%)
+}
+
+.diver-key {
+  border-radius: 50%;
+  background: #b76440
+}
+
+.target-key {
+  border: 2px solid #96782e;
+  transform: rotate(45deg)
+}
+
+.zone-key {
+  width: 16px;
+  border: 1px dashed #a85c3a;
+  border-radius: 50%
+}
+
+.tile-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 1.05rem .2rem
+}
+
+.tile-row>div {
+  padding: 0 .9rem;
+  border-right: 1px solid var(--line)
+}
+
+.tile-row>div:last-child {
+  border: 0
+}
+
+.tile-row small,
+.device small {
+  display: block;
+  color: var(--muted);
+  font-size: .78rem
+}
+
+.tile-row strong {
+  display: block;
+  font: 600 clamp(1.07rem, 1.66vw, 1.55rem)/1.5 "IBM Plex Mono", Consolas, monospace;
+  white-space: nowrap
+}
+
+.positions {
+  border-top: 1px solid var(--line);
+  padding: .7rem 1.2rem;
+  font-size: .85rem;
+  color: var(--muted)
+}
+
+summary {
+  cursor: pointer
+}
+
+.positions p {
+  margin: .6rem 0
+}
+
+.positions select {
+  padding: .25rem
+}
+
+.handheld,
+.operator {
+  padding-bottom: 1rem
+}
+
+.device {
+  margin: 0 1rem .9rem;
+  background: #e8efe5;
+  border: 1px solid #c5d4c2;
+  border-radius: 6px;
+  padding: .8rem .9rem;
+  color: #224438
+}
+
+.device>strong {
+  display: block;
+  font: 600 1.1rem/1.35 Consolas, monospace;
+  margin: .2rem 0 .55rem;
+  overflow-wrap: anywhere
+}
+
+.device>div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .8rem
+}
+
+.device b,
+.readings dd {
+  font-family: Consolas, monospace
+}
+
+.radio-icon {
+  color: var(--green);
+  font-size: 1.4rem
+}
+
+.buttons {
+  flex-wrap: wrap;
+  padding: 0 1rem;
+  gap: .4rem
+}
+
+.buttons button,
+.exports a {
+  font-size: .85rem
+}
+
+.mission-state {
+  margin: 0 1.15rem .65rem;
+  color: var(--green);
+  font-weight: 650
+}
+
+.readings {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .3rem .7rem;
+  margin: 0 1.15rem 1rem;
+  font-size: .85rem
+}
+
+.readings dt,
+.caption {
+  color: var(--muted)
+}
+
+dd {
+  margin: 0;
+  text-align: right
+}
+
+.fault {
+  margin: .5rem 1rem
+}
+
+.lower {
+  grid-template-columns: 1.05fr 1fr;
+  margin-top: 1rem
+}
+
+.caption {
+  margin: .45rem 1.2rem .85rem;
+  font-size: .82rem
+}
+
+.card-head select {
+  max-width: 47%;
+  padding: .3rem .4rem;
+  font-size: .83rem
+}
+
+#chart {
+  height: 145px;
+  width: 100%;
+  display: block
+}
+
+.exports a {
+  color: var(--green);
+  font-weight: 600
+}
+
+.exports {
+  gap: .8rem
+}
+
+#events {
+  list-style: none;
+  max-height: 175px;
+  overflow: auto;
+  margin: 0;
+  padding: 0 1.2rem .8rem
+}
+
+#events li {
+  display: grid;
+  grid-template-columns: 4.1rem 1fr;
+  gap: .5rem;
+  border-top: 1px solid #e3e8e1;
+  padding: .35rem 0;
+  font-size: .83rem
+}
+
+#events time {
+  color: var(--muted);
+  font: .79rem/1.5 Consolas, monospace
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0
+}
+
+dialog {
+  width: min(650px, calc(100% - 2rem));
+  max-height: 90dvh;
+  padding: 0;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 8px;
+  background: var(--panel)
+}
+
+dialog::backdrop {
+  background: #16353780
+}
+
+dialog .card-head,
+.form-footer {
+  border-bottom: 1px solid var(--line)
+}
+
+.form-body {
+  padding: 0 1.2rem
+}
+
+.form-body fieldset {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .65rem 1rem;
+  border: 0;
+  border-top: 1px solid var(--line);
+  padding: .5rem 0 .8rem;
+  margin: 1rem 0 0
+}
+
+.form-body legend {
+  font-weight: 650;
+  padding: 0 .5rem 0 0
+}
+
+.form-body label {
+  display: grid;
+  gap: .18rem;
+  font-size: .84rem;
+  color: var(--muted)
+}
+
+.form-body input {
+  width: 100%;
+  padding: .4rem .5rem
+}
+
+.form-footer {
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  justify-content: flex-end;
+  padding: .9rem 1.2rem
+}
+
+.scenario-files,
+#form-status {
+  margin: .5rem 1.2rem
+}
+
+.file-button {
+  display: inline-block;
+  position: relative;
+  font-size: .85rem
+}
+
+.file-button input {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  cursor: pointer
+}
+
+.scenario-files button {
+  font-size: .85rem
+}
+
+.replay-tools {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  flex-wrap: wrap;
+  margin: 0 1.2rem .8rem
+}
+
+.replay-tools button,
+.replay-tools label {
+  font-size: .83rem
+}
+
+.replay-tools input[type=range] {
+  max-width: 150px
+}
+
+@media(max-width:900px) {
+  main {
+    padding: 1.6rem 1rem 2rem
+  }
+
+  .mast {
+    padding: 0 1rem
+  }
+
+  .workspace {
+    grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 1fr)
+  }
+
+  .tile-row {
+    grid-template-columns: 1fr 1fr;
+    row-gap: .55rem
+  }
+
+  .tile-row>div:nth-child(2) {
+    border: 0
+  }
+
+  .card-head {
+    padding: .85rem 1rem
+  }
+}
+
+@media(max-width:705px) {
+
+  .workspace,
+  .lower {
+    grid-template-columns: 1fr
+  }
+
+  .topline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .9rem
+  }
+
+  .topline h1 {
+    font-size: 2rem
+  }
+
+  .mast-caption {
+    display: none
+  }
+
+  .plot-wrap {
+    height: 325px
+  }
+
+  .side {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))
+  }
+
+  .transport {
+    flex-wrap: wrap
+  }
+
+  .tile-row {
+    grid-template-columns: repeat(4, 1fr)
+  }
+
+  .tile-row>div {
+    padding: 0 .4rem
+  }
+
+  .tile-row>div:nth-child(2) {
+    border-right: 1px solid var(--line)
+  }
+
+  .tile-row small {
+    font-size: .72rem
+  }
+
+  .card-head {
+    min-height: 3.3rem
+  }
+
+  .pills span {
+    font-size: .66rem
+  }
+
+  .pills {
+    gap: .2rem
+  }
+
+  .legend {
+    gap: .25rem .65rem
+  }
+
+  .mast {
+    min-height: 48px
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+  * {
+    scroll-behavior: auto
+  }
+}
