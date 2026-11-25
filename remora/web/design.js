@@ -1,5 +1,7 @@
 "use strict";
 
+const NEWTONS_PER_LBF = 4.4482216152605;
+
 const boatDesign = (() => {
   const get = id => document.getElementById(id);
   const presets = {
@@ -20,7 +22,7 @@ const boatDesign = (() => {
     const thrust = Number(get("thrust_lbf").value);
     const motors = get("steering").value === "differential" ? 2 : 1;
     get("thrust-value").textContent = Number.isFinite(thrust) ?
-      Math.round(thrust * 4.44822) + " N per motor · " + motors + (motors === 1 ? " motor" : " motors") : "";
+      Math.round(thrust * NEWTONS_PER_LBF) + " N per motor · " + motors + (motors === 1 ? " motor" : " motors") : "";
     const d = Number(get("wind_from_deg").value);
     get("wind-value").textContent = Number.isFinite(d) ?
       "Blows toward " + Math.round((d + 180) % 360) + "° true" : "";

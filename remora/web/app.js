@@ -318,7 +318,7 @@ function geometryPoints() {
 }
 const series = [
   ["Ground speed", "km/h", s => Number.isFinite(s.boat?.speed_mps) ? s.boat.speed_mps * 3.6 : null],
-  ["Model thrust", "N", s => s.boat?.plant?.thrust_n],
+  ["Total motor thrust", "lbf", s => Number.isFinite(s.boat?.plant?.thrust_n) ? s.boat.plant.thrust_n / NEWTONS_PER_LBF : null],
   ["Model energy", "Wh", s => s.boat?.plant?.energy_wh],
   ["Battery voltage", "V", s => s.boat?.voltage_v],
   ["Battery current", "A", s => s.boat?.current_a],
@@ -330,7 +330,7 @@ const series = [
   ["Radio latency", "s", s => s.radio?.latency_s],
   ["Radio loss", "%", s => Number.isFinite(s.radio?.loss) ? 100 * s.radio.loss : null]
 ];
-series.forEach(([name], index) => el("series").add(new Option(name, index)));
+series.forEach(([name, unit], index) => el("series").add(new Option(name + " (" + unit + ")", index)));
 el("series").onchange = () => drawChart();
 
 function renderRendezvousUpdate(s, handheld, downlink) {

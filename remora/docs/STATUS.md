@@ -79,6 +79,8 @@ The single-motor lancha now turns toward its station and offsets drift with forw
 
 The current desktop dashboard is **http://127.0.0.1:8765/**. The previous interactive run was archived as `20261125T213150Z-ccadc1f5`. Its replacement reached Loiter with the same user scenario. Verified a single firmware process and a held per-user lock. A second dashboard port has been closed. All 48 unit tests passed, including duplicate startup rejection and lock release after an interrupted launch. The handheld explains when a coordinate update is unavailable. The hosted verification for the preceding change was canceled before simulation to reserve the session for the owner's desktop.
 
+The telemetry picker labels its units. Total motor thrust now displays in lbf, matching the static per-motor rating in setup. On the existing 80 lbf single-motor run `20261125T213747Z-5818f27c`, Windows Chrome showed 33.0 lbf from a roughly 147 N sample. The browser also verified the 80 lbf reference conversion, zero thrust and unavailable thrust, without starting a second simulator.
+
 ## Next implementation task
 
 Run controlled paired wind/current sweeps for the reference hull and plot along-track speed, lateral error and energy by steering method. Preserve no-progress and time-out outcomes. Obtain a head-on silhouette with scale at the intended loaded waterline before treating bow windage as a measured input. Any live dive continues to require separate surface supervision and independent recovery.

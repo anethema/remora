@@ -43,7 +43,7 @@ L2 has surge/sway added-mass approximations, quadratic water drag, yaw damping a
 
 For the remaining M2 work, measure hull drag, motor response and relative turning performance. Add wave/immersion disturbances and characterize the useful electrical operating range. Compare AGM and LiFePO4 with measured inputs. For M3, extend the scenario schema with scheduled radio/sensor/battery faults, mapped exclusion polygons and independent isolation feedback. Keep fault outcomes and unavailable estimates visible. For M4, identify calibration measurements and supervised test equipment. Physical deployment is outside these simulation milestones.
 
-The supervisor compares true bow heading to the local bearing of the fixed rendezvous during departure. It measures closing speed from position history. The dashboard also shows course over ground, derived from the north and east velocity components of Rover's GLOBAL_POSITION_INT message. Below 0.15 m/s that course is undefined in the display. Ground speed is displayed in km/h. MAVLink, JSON and CSV retain SI velocity.
+The supervisor compares true bow heading to the local bearing of the fixed rendezvous during departure. It measures closing speed from position history. The dashboard also shows course over ground, derived from the north and east velocity components of Rover's GLOBAL_POSITION_INT message. Below 0.15 m/s that course is undefined in the display. Ground speed is displayed in km/h. The thrust plot converts total modeled propeller force from newtons to lbf using 4.4482216152605 N/lbf, matching the input unit for per-motor static thrust. Saved samples retain newtons. MAVLink, JSON and CSV retain SI velocity.
 
 
 ## Station keeping and handheld coordinate updates
