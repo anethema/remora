@@ -12,7 +12,7 @@ Open **http://127.0.0.1:8765/** in Windows while the WSL dashboard is running. *
 | M1 · verified locally | Offline browser assets, loopback API and WebSocket, real firmware tracks, drifting virtual diver, seeded two-way impaired link, human authorization, synthetic route checks, results, JSON/CSV and read-only replay. Three native 1 km runs reached verified Loiter. | Add repeated disconnect/restart and scheduled safety-fault regressions. |
 | M2 · partial, uncalibrated | Actual JSON SITL actuator loop drives an external planar hull. User selects mass, length, motor thrust/current, steering, battery, wind speed/from-direction, bow and side CdA, and current. Three steering arrangements drove test courses. | Current, wind and battery sensitivity sweeps with distributions. Add current-coupled diver drift alongside explicit ground-relative drift. Measure loaded hull, drag, motor curves and turning response. Add gusts, wave/immersion effects, lead-acid rate dependence and low-reserve policy. |
 | M3 · partial | Policy and unit tests, real firmware smoke, seeded native batch, run archives, browser smoke and project-specific CI definition. | Scheduled burst/immersion and GPS/compass outages, corruption, changing no-go polygons, restart handling, independent isolation feedback and full matrix reports. |
-| M4 · deferred | The docs record candidate hardware and required calibration. | No hardware control, purchases or deployment. |
+| M4 · planning | [Winter steering bench and parts list](../hardware/steering-bench.md) for the existing 30 lbf motor. | Record motor model, mount geometry and dry pivot torque. Select linkage and actuator, then measure shaft angle and slew rate. All physical results are pending. |
 
 ## Reproduction and evidence
 
