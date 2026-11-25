@@ -1,0 +1,32 @@
+schema_version: 1
+name: Lancha cross-current departure
+seed: 7
+speedup: 8
+diver_e_m: 1000
+diver_n_m: 0
+drift_e_mps: 0
+drift_n_mps: 0.025
+target_e_m: 900
+target_n_m: 0
+exclusion_m: 45
+uncertainty_m: 8
+latency_s: 0.35
+loss: 0.02
+freshness_s: 12
+timeout_s: 1200
+boat_design:
+  model: lancha
+  length_m: 3.7
+  mass_kg: 200
+  thrust_lbf: 80
+  max_current_a: 80
+  steering: steerable
+  battery: LiFePO4
+  capacity_ah: 100
+  wind_speed_mps: 5.555555555555555
+  wind_from_deg: 90
+  wind_cda_bow_m2: 0.7
+  wind_cda_beam_m2: 2
+  current_e_mps: 0
+  current_n_mps: 1
+authorization: handheld_pickup

@@ -13,11 +13,22 @@ Point = tuple[float, float]
 ARRIVAL_M = 8.0
 OPEN_WATER_HALF_WIDTH_M = 2500.0
 NO_PROGRESS_S = 45.0
+DEPARTURE_LIMIT_S = 120.0
+DEPARTURE_RETREAT_M = 100.0
+RECOVERY_GRACE_S = 12.0
+MIN_RECOVERY_SPEED_MPS = 0.5
 TERMINAL = {"ABORT", "FAULT"}
 
 
 def finite(value):
     return type(value) in (int, float) and math.isfinite(value)
+
+
+def heading_error_deg(boat, target):
+    if not finite(boat.get("heading_deg")):
+        return None
+    bearing = math.degrees(math.atan2(target[0] - boat["e"], target[1] - boat["n"]))
+    return abs((boat["heading_deg"] - bearing + 180.0) % 360.0 - 180.0)
 
 
 def point_segment(p, a, b):
@@ -51,6 +62,12 @@ class Packet:
 def channel(kind):
     # A late request cannot revive a newer cancellation.
     return "control" if kind in ("request", "cancel", "station_keep") else kind
+
+
+def can_request_station(state, recoverable_fault):
+    return state in ("ABORT", "TRANSIT_TO_RENDEZVOUS", "PICKUP_REQUESTED", "RENDEZVOUS_HOLD") or (
+        state == "FAULT" and recoverable_fault
+    )
 
 
 class Mission:
@@ -89,6 +106,7 @@ class Mission:
         self.velocity = config["drift_e_mps"], config["drift_n_mps"]
         self.state = "STATION_KEEPING"
         self.fault = None
+        self._manual_station_recovery = False
         self.single_press = config.get("authorization") == "handheld_pickup"
         self._session = object()
         self._rng = random.Random(config["seed"])
@@ -107,6 +125,7 @@ class Mission:
         self._best_distance = math.inf
         self._progress_at = 0.0
         self._progress = deque()
+        self._departure_turn = False
 
     def _clock(self, t):
         if not finite(t) or t < 0:
@@ -189,7 +208,9 @@ class Mission:
             self.state = "PICKUP_REQUESTED"
             self._event(t, f"Request {self._request} received; awaiting surface operator approval")
             self._send("ack", t, {"text": f"Request {self._request} received"})
-        elif k == "station_keep" and self.state == "ABORT" and boat is not None:
+        elif (
+            k == "station_keep" and can_request_station(self.state, self._manual_station_recovery) and boat is not None
+        ):
             reason = self._station_block(t, boat)
             if reason:
                 self._event(t, f"Station keeping refused: {reason}")
@@ -202,7 +223,7 @@ class Mission:
             self._progress.clear()
             self._event(t, "Station keep received; requested LOITER at the boat")
             self._send("ack", t, {"text": "Station keep received"})
-            return [("loiter",)]
+            return [("hold",), ("loiter",)] if boat["mode"] == "LOITER" else [("loiter",)]
         elif k == "cancel":
             if self.state in ("PICKUP_REQUESTED", "TRANSIT_TO_RENDEZVOUS", "RENDEZVOUS_HOLD", "SETTING_STATION"):
                 return self._abort("Diver cancellation received", t, "ABORT")
@@ -217,10 +238,11 @@ class Mission:
             self._latency = t - packet.sent
         return []
 
-    def _abort(self, reason, t, state):
+    def _abort(self, reason, t, state, *, manual_station=False):
         if self.state in TERMINAL:
             return []
         self.state, self.fault = state, reason
+        self._manual_station_recovery = manual_station
         self._event(t, reason)
         self._send("ack", t, {"text": f"{state}: {reason}"})
         return [("hold",)]
@@ -271,15 +293,17 @@ class Mission:
         return None
 
     def _station_block(self, t, boat):
-        if boat.get("mode") != "HOLD":
+        if self.state in TERMINAL and boat.get("mode") != "HOLD":
             return "Waiting for confirmed HOLD"
+        if self.state not in TERMINAL and boat.get("mode") not in ("GUIDED", "LOITER"):
+            return "Waiting for a verified navigation mode"
         return self._unsafe(t, boat, station=True)
 
     def _eta(self, t):
         if self.state != "TRANSIT_TO_RENDEZVOUS" or len(self._progress) < 2:
             return None
-        first_t, first_d = self._progress[0]
-        last_t, last_d = self._progress[-1]
+        first_t, first_d, _ = self._progress[0]
+        last_t, last_d, _ = self._progress[-1]
         if last_t - first_t < 3 or t - last_t > self.c["freshness_s"]:
             return None
         closing = (first_d - last_d) / (last_t - first_t)
@@ -287,7 +311,7 @@ class Mission:
 
     def action(self, action: str, t: float, boat: dict) -> list[tuple]:
         self._clock(t)
-        if action == "station_keep" and self.state == "ABORT":
+        if action == "station_keep" and can_request_station(self.state, self._manual_station_recovery):
             reason = self._station_block(t, boat)
             if reason:
                 raise ValueError(reason)
@@ -347,6 +371,9 @@ class Mission:
             raise ValueError("LOITER telemetry is required for approval")
         self._began = self._progress_at = t
         self._best_distance = math.dist((boat["e"], boat["n"]), self.target)
+        error = heading_error_deg(boat, self.target)
+        self._departure_turn = error is not None and error >= 45.0
+        self._progress.clear()
         self.state = "TRANSIT_TO_RENDEZVOUS"
         self._event(t, f"{actor} approved the separated rendezvous")
         self._send("ack", t, {"text": f"Request {self._request} approved"})
@@ -386,13 +413,17 @@ class Mission:
                 )
         while self._queue and self._queue[0][0] <= t:
             _, _, packet = heapq.heappop(self._queue)
-            commands.extend(self._receive(packet, t, boat))
+            delivered = self._receive(packet, t, boat)
+            if delivered:
+                # Only the latest accepted radio navigation command in this tick can drive Rover.
+                commands = delivered
         if self.state == "SETTING_STATION":
             error = self._unsafe(t, boat, station=True)
             if error:
                 return commands + self._abort(error, t, "FAULT")
             if boat.get("mode") == "LOITER" and t > self._station_requested:
                 self.state = "STATION_KEEPING"
+                self._manual_station_recovery = False
                 self._request_sent_at = -math.inf
                 self._event(t, "LOITER confirmed at the new station")
                 self._send("ack", t, {"text": "Station keeping here"})
@@ -436,7 +467,7 @@ class Mission:
                 return commands + self._abort("Firmware left rendezvous LOITER", t, "FAULT")
             return commands
         if t - self._began >= self.c["timeout_s"]:
-            return commands + self._abort("Transit timed out", t, "FAULT")
+            return commands + self._abort("Transit timed out", t, "FAULT", manual_station=True)
         distance = math.dist((boat["e"], boat["n"]), self.target)
         if self._loiter_requested is not None:
             if boat.get("mode") == "LOITER" and t > self._loiter_requested and distance <= ARRIVAL_M:
@@ -452,10 +483,26 @@ class Mission:
         if not self._progress:
             self._event(t, "GUIDED transit confirmed by firmware telemetry")
             self._send("ack", t, {"text": f"Request {self._request} executing"})
+        error = heading_error_deg(boat, self.target)
         if not self._progress or self._progress[-1][0] < t:
-            self._progress.append((t, distance))
+            self._progress.append((t, distance, error))
         while len(self._progress) > 1 and self._progress[0][0] < t - 8:
             self._progress.popleft()
+        oldest_t, oldest_range, oldest_error = self._progress[0]
+        span = t - oldest_t
+        closing = span >= 6.0 and (oldest_range - distance) / span >= MIN_RECOVERY_SPEED_MPS
+        if self._departure_turn:
+            # Rebase range once a wrong-way departure has actually turned and gained ground.
+            if distance <= self._best_distance - 3.0 or (closing and error is not None and error <= 35.0):
+                self._departure_turn = False
+                self._best_distance, self._progress_at = distance, t
+                self._event(t, "Departure turn complete; tracking progress toward rendezvous")
+            elif t - self._progress_at >= NO_PROGRESS_S:
+                turning = span >= 6.0 and error is not None and oldest_error is not None and oldest_error - error >= 4.0
+                if turning and t - self._began < DEPARTURE_LIMIT_S and distance <= self._best_distance + DEPARTURE_RETREAT_M:
+                    return commands
+                if distance > ARRIVAL_M:
+                    return commands + self._abort("No sustained progress during departure turn", t, "FAULT", manual_station=True)
         if distance <= ARRIVAL_M:
             self._loiter_requested = t
             self._event(t, "Arrival radius reached; requested LOITER")
@@ -463,7 +510,11 @@ class Mission:
         elif distance <= self._best_distance - 3.0:
             self._best_distance, self._progress_at = distance, t
         elif t - self._progress_at >= NO_PROGRESS_S:
-            return commands + self._abort("No sustained progress toward rendezvous", t, "FAULT")
+            # A turn can temporarily lose ground. Give a boat already closing on its
+            # best range time to regain it, with a deadline anchored to that same best.
+            recovering = closing and distance - self._best_distance <= 15.0
+            if not recovering or t - self._progress_at >= NO_PROGRESS_S + RECOVERY_GRACE_S:
+                return commands + self._abort("No sustained progress toward rendezvous", t, "FAULT", manual_station=True)
         return commands
 
     def snapshot(self, t: float, boat: dict) -> dict:
@@ -480,7 +531,7 @@ class Mission:
         ):
             actions.append("request")
         station_block = None
-        if self.state == "ABORT":
+        if can_request_station(self.state, self._manual_station_recovery):
             station_block = self._station_block(t, boat)
             if not station_block and t - self._station_sent >= max(2.0, 3 * self.c["latency_s"]):
                 actions.append("station_keep")
@@ -495,6 +546,7 @@ class Mission:
             "fault": self.fault,
             "approval_block_reason": block_reason,
             "station_block_reason": station_block,
+            "departure_turn": self.state == "TRANSIT_TO_RENDEZVOUS" and self._departure_turn,
             "station": {"e": self._station[0], "n": self._station[1]}
             if self._station and self.state in ("STATION_KEEPING", "SETTING_STATION")
             else None,

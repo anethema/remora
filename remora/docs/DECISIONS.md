@@ -26,3 +26,11 @@ For an empty, low-sided open skiff, a preliminary sensitivity set for **bow CdA*
 
 
 After a deliberate cancellation the user can send **Station keep here** over the same radio. The controller verifies fresh position, an armed plant with available propulsion, clear separation and Hold before requesting Loiter. A later position sample and a Loiter heartbeat confirm the state. The boat may move as it brakes. The aborted rendezvous is discarded; protective faults and simulated cutoff cannot trigger an automatic restart.
+
+## Departure turns and handheld station keeping
+
+A single steerable stern motor has ±35° travel in the external plant. Select Rover's corresponding vectored-thrust mixer with `MOT_VEC_ANGLEMAX=35` for that arrangement and verify firmware readback on startup. The fixed-rudder and differential models use 0 for this parameter. All these values apply only inside the isolated JSON simulation.
+
+The supervisor treats a departure at least 45° off bearing as an initial turn. After 45 simulated seconds without range progress it permits the turn to continue only with measured improvement of at least 4° across the recent 6–8 s history. The turn allowance ends at 120 s from authorization or 100 m of retreat. Rebase the progress distance once the bow is within 35° and closing at 0.5 m/s or more, or the boat is already 3 m closer. During established transit, a boat regaining earlier ground at 0.5 m/s or more within 15 m of its prior best can get up to 12 extra seconds. These are experimental simulator thresholds. The existing position, link, propulsion and separation checks run during the maneuver.
+
+Station keep here is a radio command available directly during transit, after cancellation, at rendezvous, or after a confirmed navigation-only no-progress/timeout Hold. On receipt, clear the pickup and capture the current position. If the boat already reports Loiter, cycle through confirmed Hold before requesting Loiter so Rover takes a new station. The handheld reports success after Loiter telemetry. A disarm, propulsion cutoff, unsafe station or stale telemetry blocks the request.

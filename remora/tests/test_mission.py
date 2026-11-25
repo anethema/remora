@@ -173,6 +173,74 @@ class MissionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 m.action("request", 52.0, guided)
 
+    def test_wrong_way_departure_can_turn_in_current_without_disabling_no_progress(self):
+        for outcome in ("turns", "stuck", "retreats", "slow"):
+            with self.subTest(outcome=outcome):
+                m = requested()
+                wrong = dict(BOAT, heading_deg=240.0)
+                m.action("approve", 1, wrong)
+                for t in range(2, 125):
+                    # The boat initially drifts west as the hull turns. The test also
+                    # exercises a jammed helm, excessive retreat and the absolute deadline.
+                    rate = {"stuck": 0.0, "slow": 0.7}.get(outcome, 2.0)
+                    heading = max(90.0, 240.0 - rate * t)
+                    east = -0.7 * t + max(0.0, t - 53) * 3
+                    if outcome == "retreats":
+                        east = -2.1 * t
+                    if outcome == "slow":
+                        east = -0.2 * t
+                    m.step(t, dict(wrong, mode="GUIDED", e=east, heading_deg=heading))
+                    if m.state == "FAULT":
+                        break
+                if outcome == "turns":
+                    self.assertEqual(m.state, "TRANSIT_TO_RENDEZVOUS")
+                    self.assertFalse(m._departure_turn)
+                else:
+                    self.assertEqual(m.state, "FAULT")
+                    self.assertIn("progress", m.fault)
+                    self.assertEqual(t, {"stuck": 46, "retreats": 48, "slow": 121}[outcome])
+
+    def test_boat_regaining_ground_may_finish_turn_but_cannot_extend_deadline(self):
+        for continues in (True, False):
+            m = transit()
+            for t in range(2, 59):
+                east = -20 if t < 35 else -20 + (t - 35) * (1.2 if continues else 0.6)
+                commands = m.step(t, dict(BOAT, mode="GUIDED", e=east))
+                if t == 46:
+                    self.assertEqual(commands, [])
+                    self.assertEqual(m.state, "TRANSIT_TO_RENDEZVOUS")
+            self.assertEqual(m.state, "TRANSIT_TO_RENDEZVOUS" if continues else "FAULT")
+
+    def test_manual_station_after_no_progress_and_delayed_old_pickup(self):
+        m = transit()
+        guided = dict(BOAT, mode="GUIDED")
+        m.step(2.0, guided)
+        self.assertEqual(m.step(50.0, guided), [("hold",)])
+        self.assertIn("progress", m.fault)
+        self.assertNotIn("station_keep", m.snapshot(50, guided)["actions"])
+        holding = dict(guided, mode="HOLD", e=5.0)
+        m.step(51, holding)
+        m.action("station_keep", 51, holding)
+        self.assertEqual(m.step(51, holding), [("loiter",)])
+        m.step(52, dict(holding, mode="LOITER"))
+        old_pickup = Packet(m._session, "request", 1, 48, {"e": 1000, "n": 0})
+        self.assertEqual(m._receive(old_pickup, 53, holding), [])
+        self.assertEqual(m.snapshot(53, holding)["station"], {"e": 5.0, "n": 0.0})
+
+    def test_station_reanchors_when_firmware_is_already_in_loiter(self):
+        m = requested()
+        m.action("station_keep", 1, BOAT)
+        self.assertEqual(m.step(1, BOAT), [("hold",), ("loiter",)])
+        self.assertEqual(m.state, "SETTING_STATION")
+
+    def test_telemetry_fault_stays_latched_after_telemetry_recovers(self):
+        m = transit()
+        m.step(2, dict(BOAT, mode="GUIDED", heartbeat_age_s=20.0))
+        healthy = dict(BOAT, mode="HOLD")
+        m.step(3, healthy)
+        self.assertEqual(m.state, "FAULT")
+        self.assertNotIn("station_keep", m.snapshot(3, healthy)["actions"])
+
     def test_route_rechecked_during_navigation(self):
         m = transit()
         self.assertEqual(m.step(2.0, dict(BOAT, e=990.0, mode="GUIDED")), [("hold",)])

@@ -3,6 +3,7 @@
 # AP_FLAKE8_CLEAN
 import math
 
+STEERING_LIMIT_DEG = 35
 HULLS = {"light": (3.0, 150), "lancha": (3.7, 200), "loaded": (4.3, 250)}
 DEFAULT_DESIGN = dict(
     model="native",
@@ -74,7 +75,7 @@ class Plant:
         twin = c["steering"] == "differential"
         left = demand(ch1) if twin else 0.0
         right = demand(ch3)
-        target_angle = 0 if twin else math.radians(35) * demand(ch1)
+        target_angle = 0 if twin else math.radians(STEERING_LIMIT_DEG) * demand(ch1)
         self.steer += max(-dt, min(dt, target_angle - self.steer))
         self.a += (left - self.a) * min(1, dt / 0.35)
         self.b += (right - self.b) * min(1, dt / 0.35)

@@ -345,7 +345,8 @@ main {
 
 .tile-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  row-gap: .6rem;
   padding: 1.05rem .2rem
 }
 
@@ -354,7 +355,7 @@ main {
   border-right: 1px solid var(--line)
 }
 
-.tile-row>div:last-child {
+.tile-row>div:nth-child(3n) {
   border: 0
 }
 
@@ -648,7 +649,11 @@ dialog .card-head,
     row-gap: .55rem
   }
 
-  .tile-row>div:nth-child(2) {
+  .tile-row>div:nth-child(3n) {
+    border-right: 1px solid var(--line)
+  }
+
+  .tile-row>div:nth-child(2n) {
     border: 0
   }
 
@@ -691,15 +696,19 @@ dialog .card-head,
   }
 
   .tile-row {
-    grid-template-columns: repeat(4, 1fr)
+    grid-template-columns: repeat(3, 1fr)
   }
 
   .tile-row>div {
     padding: 0 .4rem
   }
 
-  .tile-row>div:nth-child(2) {
+  .tile-row>div:nth-child(2n) {
     border-right: 1px solid var(--line)
+  }
+
+  .tile-row>div:nth-child(3n) {
+    border: 0
   }
 
   .tile-row small {

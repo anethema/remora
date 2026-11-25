@@ -348,7 +348,8 @@ function render() {
   display("boat-summary", boatDesign.summary(c));
   const oneTap = c.authorization === "handheld_pickup";
   const handheld = oneTap || c.authorization === "diver_handheld";
-  document.querySelector('[data-action="station_keep"]').hidden = !["ABORT","SETTING_STATION"].includes(s.state);
+  const stationButton = document.querySelector('[data-action="station_keep"]');
+  stationButton.title = s.station_block_reason || (s.state === "STATION_KEEPING" ? "Already holding this station" : "Hold the current area");
   display("operator-title", handheld ? "Simulation monitor · empty boat" : "Surface operator");
   document.querySelector('[data-action="approve"]').hidden = handheld;
   document.querySelector('[data-action="reject"]').hidden = handheld;
@@ -364,7 +365,7 @@ function render() {
   display("fidelity", s.fidelity === "L1" ? "L1 · Native motorboat" : s.fidelity === "L2" ? "L2 · Uncalibrated lancha" : s.fidelity || "—");
   display("clock", clock(s.sim_s));
   const pending = s.state === "PICKUP_REQUESTED";
-  display("mission", pending ? (handheld && !replay ? "Pickup requested" : nice(s.state)) : nice(s.state));
+  display("mission", pending ? (handheld && !replay ? "Pickup requested" : nice(s.state)) : s.departure_turn ? "Turning toward rendezvous" : nice(s.state));
   display("mode", b.mode || "—");
   display("heartbeat-age", number(b.heartbeat_age_s, 1, " s"));
   display("fix-age", number(radio.fix_age_s, 1, " s"));
@@ -378,6 +379,10 @@ function render() {
   display("separation", number(preview() ? previewRange : s.separation_m, 0, " m"));
   display("speed", number(Number.isFinite(b.speed_mps) ? 3.6 * b.speed_mps : null, 1, " km/h"));
   display("heading", number(b.heading_deg, 0, "°"));
+  display("course", number(b.course_deg, 0, "°"));
+  const bearing = point(b) && point(target) && Math.hypot(target.e-b.e, target.n-b.n) >= 1
+    ? (Math.atan2(target.e-b.e, target.n-b.n) * 180 / Math.PI + 360) % 360 : null;
+  display("target-bearing", number(bearing, 0, "°"));
   display("battery", number(b.voltage_v, 1, " V"));
   display("position-info", "Metres from the simulated origin. Boat " + coords(boat) + " · Diver " + coords(diver) + " · Candidate " + coords(target));
   const feedback = s.state === "ABORT" ? [s.fault, s.station_block_reason || "Station keep here will hold the current position."].filter(Boolean).join(" · ") : s.fault || s.approval_block_reason;

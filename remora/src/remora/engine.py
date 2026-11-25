@@ -156,6 +156,7 @@ class Engine:
                 "voltage_v",
                 "current_a",
                 "throttle_pct",
+                "course_deg",
             )
         )
         for row in self.export()["samples"]:
@@ -174,6 +175,7 @@ class Engine:
                     boat.get("voltage_v"),
                     boat.get("current_a"),
                     boat.get("throttle_pct"),
+                    boat.get("course_deg"),
                 )
             )
         return out.getvalue()
@@ -273,6 +275,7 @@ class Engine:
                     for k in (
                         "speed_mps",
                         "heading_deg",
+                        "course_deg",
                         "mode",
                         "armed",
                         "age_s",

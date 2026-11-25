@@ -4,11 +4,11 @@ The WSL2 Ubuntu checkout is `~/src/remora` on the owner's Windows desktop. The p
 
 ## Running today
 
-Open **http://127.0.0.1:8765/** in Windows while the WSL dashboard is running. **Boat, motor & wind** opens the design editor while the simulator is idle. The default scenario uses the uncalibrated lancha and an empty boat. The surfaced diver sees the separated point on the simulated handheld and taps Request pickup once. Cancel pickup enters Hold. Station keep here requests Loiter at the current location. The alternative scenario uses a separate surface operator and the native reference boat.
+Open **http://127.0.0.1:8765/** in Windows while the WSL dashboard is running. **Boat, motor & wind** opens the design editor while the simulator is idle. The default scenario uses the uncalibrated lancha and an empty boat. The surfaced diver sees the separated point on the simulated handheld and taps Request pickup once. Cancel pickup enters Hold. Station keep here requests Loiter at the current location directly during pickup or after a cancellation or navigation-only fault. The alternative scenario uses a separate surface operator and the native reference boat.
 
 | Milestone | Evidence | Outstanding work |
 | --- | --- | --- |
-| M0 · verified locally | Built actual Rover with GCC 15.2.0 and Python 3.12.13 on WSL Ubuntu 26.04. Native motorboat heartbeat, GNSS, normal arming, Guided target echo, measured transit, Loiter, Hold and cleanup. | Repeat on fresh supported Linux environments through project CI. |
+| M0 · verified locally | Built actual Rover with GCC 15.2.0 and Python 3.12.13 on WSL Ubuntu 26.04. Native motorboat heartbeat, GNSS, normal arming, Guided target echo, measured transit, Loiter, Hold and cleanup. | Verified on a second clean WSL checkout and in hosted Ubuntu 22.04 CI. |
 | M1 · verified locally | Offline browser assets, loopback API and WebSocket, real firmware tracks, drifting virtual diver, seeded two-way impaired link, human authorization, synthetic route checks, results, JSON/CSV and read-only replay. Three native 1 km runs reached verified Loiter. | Add repeated disconnect/restart and scheduled safety-fault regressions. |
 | M2 · partial, uncalibrated | Actual JSON SITL actuator loop drives an external planar hull. User selects mass, length, motor thrust/current, steering, battery, wind speed/from-direction, bow and side CdA, and current. Three steering arrangements drove test courses. | Current, wind and battery sensitivity sweeps with distributions. Add current-coupled diver drift alongside explicit ground-relative drift. Measure loaded hull, drag, motor curves and turning response. Add gusts, wave/immersion effects, lead-acid rate dependence and low-reserve policy. |
 | M3 · partial | Policy and unit tests, real firmware smoke, seeded native batch, run archives, browser smoke and project-specific CI definition. | Scheduled burst/immersion and GPS/compass outages, corruption, changing no-go polygons, restart handling, independent isolation feedback and full matrix reports. |
@@ -44,6 +44,27 @@ Each launch creates a fresh directory in `remora/artifacts/`. Look in `result.js
 - Windows Chrome drove one-tap pickup, canceled during Guided transit, observed Hold, then explicitly requested station keeping. The firmware confirmed Loiter and the handheld received the acknowledgement. Raw results are in `remora/artifacts/browser/station-probe.log`. Run the repeatable headless equivalent with `./remora/scripts/run-tests.sh --recovery -q`.
 
 - A 120 s open-loop full-throttle check on the generic 80 lbf / 200 kg model gave 7.98 km/h in calm air and 7.95 km/h into a 5 km/h wind (bow CdA 0.35 m², no current, flat water). This is an uncalibrated plant result. The available battery model is 12 V. The [Minn Kota Riptide Transom 80](https://minnkota.johnsonoutdoors.com/us/shop/saltwater-trolling-motors/riptide-transom/1363831) is rated 24 V and 56 A, so the electrical model does not represent this particular product.
+
+## Cross-current departure investigation
+
+The 80 lbf steerable lancha runs used identical scenario settings, including a 20 km/h wind from east, 1 m/s current to the north, 200 kg hull and radio seed 7. In WSL archive `20261125T211010Z-e27162e1` pickup began at 76.5 simulated seconds and heading 151°. The bow swung past south. By the time the old best-range timer expired at 203 s the boat was closing again. In `20261125T211228Z-5fe36f2e`, pickup began at 181.3 s and heading 181°. The run reached rendezvous at 725 s. In `20261125T211642Z-43087a07` the bow was still turning from 228° toward the 89° target when the old timer tripped at 191.2 s. With the revised supervisor, replaying the measured inputs from both failed runs kept the boat in Guided transit at their original cutoffs. Subsequent trajectory verification uses independent firmware runs.
+
+Reproduce from the fork root with `./remora/scripts/run-batch.sh --scenario remora/scenarios/lancha_cross_current.yaml --seeds 7 --speedup 16 --request-after 146`. Vary the last value to exercise other departure phases. Each run writes the scenario, actual radio/firmware event times, parameter readbacks, samples, trajectory and result under `remora/artifacts/`.
+
+- `./remora/scripts/run-tests.sh -q` passed 36 tests, including jammed steering, excessive retreat, a slowly improving turn reaching the absolute deadline, regaining ground and explicit recovery.
+- `./remora/scripts/run-tests.sh --smoke --speedup 12` verified a 3.81 m waypoint residual, 2.07 m Loiter excursion and 0% Hold demand. `./remora/scripts/run-tests.sh --recovery -q` verified both Cancel–Hold–Loiter and direct Guided–Loiter. Windows Chrome separately exercised the direct handheld button, ground course and target bearing and received the station acknowledgement.
+- Hosted Linux CI passed the complete baseline and initial station recovery suite on [the preceding project revision](https://github.com/anethema/remora/actions/runs/45701893947).
+
+The same closed-loop cross-current scenario reached verified Loiter on all four departure timings. All times are simulated.
+
+| Request after (s) | Final state | Time from authorization (s) | Minimum diver separation (m) |
+| ---: | --- | ---: | ---: |
+| 27 | RENDEZVOUS_HOLD | 534.7 | 107.4 |
+| 76 | RENDEZVOUS_HOLD | 527.2 | 107.4 |
+| 146 | RENDEZVOUS_HOLD | 521.0 | 107.6 |
+| 181 | RENDEZVOUS_HOLD | 521.5 | 106.6 |
+
+A separate 15 lbf negative control with a 2 m/s westward current against an eastbound route faulted for no sustained progress at 74.0 s. The supervisor recorded failure and requested Hold.
 
 ## Next implementation task
 

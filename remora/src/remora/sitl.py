@@ -17,7 +17,10 @@ from threading import Event
 
 from pymavlink.dialects.v20 import ardupilotmega as mav
 
+from .plant import STEERING_LIMIT_DEG
+
 ROOT = Path(__file__).resolve().parents[3]
+LANCHA_PROFILE = ROOT / "remora/configs/lancha.parm"
 PIN = "d9c5097c3d8333435712ffed86bca8ce00c4bb46"
 MODES = {0: "MANUAL", 4: "HOLD", 5: "LOITER", 15: "GUIDED", 16: "INITIALISING"}
 
@@ -29,6 +32,7 @@ class Telemetry:
     lon: float | None = None
     heading_deg: float | None = None
     speed_mps: float | None = None
+    course_deg: float | None = None
     mode: str = "STARTING"
     armed: bool = False
     throttle_pct: float | None = None
@@ -88,12 +92,10 @@ class Sitl:
                     profile = self.work / "plant.parm"
                     profile.write_text(
                         f"SERVO1_FUNCTION {73 if twin else 26}\nSERVO3_FUNCTION {74 if twin else 70}\n"
+                        f"MOT_VEC_ANGLEMAX {STEERING_LIMIT_DEG if self.plant['steering'] == 'steerable' else 0}\n"
                         f"BATT_CAPACITY {round(1000 * self.plant['capacity_ah'])}\n"
-                        "CRUISE_SPEED 1.8\nCRUISE_THROTTLE 65\nWP_SPEED 1.8\n"
-                        "ATC_STR_RAT_MAX 24\nATC_STR_ANG_P 0.65\nATC_STR_RAT_I 0.12\n"
-                        "ATC_ACCEL_MAX 0.7\nATC_DECEL_MAX 0.7\nSIM_RATE_HZ 200\n"
                     )
-                    defaults.append(profile)
+                    defaults.extend([LANCHA_PROFILE, profile])
                     runner = [sys.executable, "-m", "remora.fdm", str(self.work / "design.json"), str(binary)]
                 # Each namespace has only loopback. The firmware RC socket also stays inside it.
                 args = [
@@ -209,6 +211,8 @@ class Sitl:
             self.data.sim_s = msg.time_boot_ms / 1000
             self.data.lat, self.data.lon = msg.lat / 1e7, msg.lon / 1e7
             self.data.speed_mps = math.hypot(msg.vx, msg.vy) / 100
+            # GLOBAL_POSITION_INT reports north/east velocity in centimetres per second.
+            self.data.course_deg = math.degrees(math.atan2(msg.vy, msg.vx)) % 360 if self.data.speed_mps >= 0.15 else None
             self.data.heading_deg = msg.hdg / 100 if msg.hdg != 65535 else None
         elif kind == "VFR_HUD":
             self.data.throttle_pct = msg.throttle
@@ -287,6 +291,7 @@ class Sitl:
             "SERVO3_FUNCTION": 70,
         }
         if self.plant:
+            expected["MOT_VEC_ANGLEMAX"] = STEERING_LIMIT_DEG if self.plant["steering"] == "steerable" else 0
             expected["BATT_CAPACITY"] = round(1000 * self.plant["capacity_ah"])
             if self.plant["steering"] == "differential":
                 expected.update(SERVO1_FUNCTION=73, SERVO3_FUNCTION=74)

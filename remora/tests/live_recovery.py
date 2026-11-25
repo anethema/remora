@@ -37,6 +37,13 @@ def test_cancel_and_station_keep_with_source_built_rover():
         after = await_sample(engine, lambda s: s["sim_s"] > station["sim_s"] + 5 and "request" in s["actions"])
         assert after["state"] == "STATION_KEEPING" and after["boat"]["mode"] == "LOITER"
         assert after["station"] == station["station"]
-        print(f"Verified recovery at {station['station']}. Evidence in {engine.run_dir}")
+        engine.action("request")
+        await_sample(engine, lambda s: s["boat"]["mode"] == "GUIDED" and s["boat"]["e"] > station["station"]["e"] + 15)
+        engine.action("station_keep")
+        direct = await_sample(engine, lambda s: s["state"] == "STATION_KEEPING" and s["boat"]["mode"] == "LOITER")
+        assert direct["station"]["e"] > station["station"]["e"] + 10
+        confirmed = await_sample(engine, lambda s: s["radio"]["ack"] == "Station keeping here")
+        assert confirmed["station"] == direct["station"]
+        print(f"Verified Cancel/Hold recovery and direct Guided/Loiter at {direct['station']}. Evidence in {engine.run_dir}")
     finally:
         engine.finish()

@@ -35,7 +35,9 @@
         <div class="tile-row">
           <div><small>Separation</small><strong id="separation">—</strong></div>
           <div><small>Ground speed</small><strong id="speed">—</strong></div>
-          <div><small>Heading</small><strong id="heading">—</strong></div>
+          <div><small>Bow heading</small><strong id="heading">—</strong></div>
+          <div><small>Course over ground</small><strong id="course">—</strong></div>
+          <div><small>To rendezvous</small><strong id="target-bearing">—</strong></div>
           <div><small>Battery</small><strong id="battery">—</strong></div>
         </div>
         <details class="positions"><summary>Local positions and plot controls</summary><p id="position-info"></p><p>Drag to pan. Use +, − and Fit to change scale. Before a run, click the plot to place a diver or rendezvous. The dotted diver line projects the configured drift for 60 seconds. Coordinates can also be entered in Scenario setup.</p><label>Click to place <select id="placement" disabled><option value="">Pan only</option><option value="diver">Diver start</option><option value="target">Rendezvous</option></select></label></details>
@@ -44,7 +46,7 @@
         <article class="panel handheld">
           <div class="card-head"><h2>Virtual handheld</h2><span class="radio-icon" aria-hidden="true">◉</span></div>
           <div class="device"><small>Last radio acknowledgement</small><strong id="ack">—</strong><div><span>Boat range / bearing</span><b id="remote-range">—</b></div><div><span>Boat battery / ETA (m:ss)</span><b id="remote-energy">—</b></div><div><span>Telemetry age</span><b id="remote-age">—</b></div></div>
-          <p id="offer" class="caption" hidden></p><div class="buttons"><button type="button" class="primary" data-action="request" disabled>Request pickup</button><button type="button" data-action="cancel" disabled>Cancel pickup</button><button type="button" class="primary" data-action="station_keep" hidden disabled>Station keep here</button><button type="button" data-action="status" disabled>Query status</button></div>
+          <p id="offer" class="caption" hidden></p><div class="buttons"><button type="button" class="primary" data-action="request" disabled>Request pickup</button><button type="button" data-action="cancel" disabled>Cancel pickup</button><button type="button" class="primary" data-action="station_keep" disabled>Station keep here</button><button type="button" data-action="status" disabled>Query status</button></div>
         </article>
         <article class="panel operator">
           <div class="card-head"><h2 id="operator-title">Surface operator</h2></div>
