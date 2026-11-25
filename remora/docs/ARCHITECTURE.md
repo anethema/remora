@@ -3,15 +3,21 @@
 ## Implemented data flow
 
 ```text
-Windows browser — localhost HTTP + read-only WebSocket — aiohttp server
-                                                           |
-                                               single engine worker
-                                             /                    \
-                              seeded handheld radio             MAVLink 2
-                               and mission supervisor          private PTY
-                                                                    |
-                                                    Rover SITL + native motorboat
-                                                          private net namespace
+Windows browser               Guest browser via optional Gradio gateway
+       +-----------------------------+
+                      |
+          Local HTTP + telemetry WebSocket
+                      |
+          Engine, mission and virtual radio
+                      |
+          MAVLink on private pseudo-terminal
+                      |
+           ArduPilot Rover SITL firmware
+                      |
+         +------------+-------------+
+         |                          |
+ L1 native motorboat        L2 JSON dynamics adapter
+                            and external lancha plant
 ```
 
 | Component | Responsibility |

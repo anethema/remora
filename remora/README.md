@@ -1,6 +1,6 @@
 # Project Remora
 
-A local workbench for studying a diver pickup request and a separated rendezvous using ArduPilot Rover. Its initial scenario places a drifting virtual diver 1,000 m east of the boat and a candidate rendezvous 900 m east. A virtual surface operator reviews the request. ArduPilot steers the simulated boat. The handheld receives position and status over a separate impaired radio model.
+A local workbench for studying a diver pickup request and a separated rendezvous using ArduPilot Rover. Its initial scenario places a drifting virtual diver 1,000 m east of the boat and a candidate rendezvous 900 m east. The default scenario takes a one-tap request from the virtual handheld. The native reference scenario uses separate surface-operator approval. ArduPilot steers the simulated boat. The handheld receives position and status over a separate impaired radio model.
 
 **Simulation only.** Live diving requires an attentive surface operator, independent recovery and appropriate emergency equipment. This release has no real vehicle endpoint. Hold and zero requested throttle do not establish propulsion isolation or safe boarding.
 
@@ -43,17 +43,17 @@ git remote add upstream https://github.com/ArduPilot/ardupilot.git
 ./remora/scripts/run-batch.sh --suite marine --seeds 1,2,3 --speedup 16
 ```
 
-Bootstrap uses the checked-in dependency lock and accepts `PYTHON` and `JOBS`. The marine suite currently runs the M1 separated-rendezvous regression. Each run stores logs, data and summaries under `remora/artifacts/`. Smoke runs include a complete MAVLink parameter dump. Runs have unique directories and private firmware transports, so independent runs can overlap.
+Bootstrap uses the checked-in dependency lock and accepts `PYTHON` and `JOBS`. The marine suite currently runs the M1 separated-rendezvous regression. Each run stores logs, data and summaries under `remora/artifacts/`. Smoke runs include a complete MAVLink parameter dump. Each firmware run has a unique evidence directory and a private transport. An exclusive lock permits one active firmware run per user on this host.
 
 ### WSL troubleshooting
 
 - In Explorer, open Ubuntu under **Linux**, then browse to `/home/anethema/src/remora`. Compile inside the Linux filesystem.
-- If port 8765 is occupied, run `./remora/scripts/run-sim.sh --port 8766` and use the matching port in Windows. The simulator lives inside its own network namespace and uses a private pseudo-terminal. MAVProxy and port forwarding to the boat are unnecessary.
+- If port 8765 is occupied, check `http://127.0.0.1:8765/api/state` and reuse the existing Remora dashboard when it responds. Identify any other listener before restarting Remora on its usual port. The simulator lives inside its own network namespace and uses a private pseudo-terminal. MAVProxy and port forwarding to the boat are unnecessary.
 - If the browser cannot connect, run `curl http://127.0.0.1:8765/api/state` inside Ubuntu and check Windows can forward localhost to WSL. The server binds only to loopback.
 - If startup fails, read the run's `result.json` and `sitl/firmware/stdout.log`. Doctor checks namespace support. Normal firmware pre-arm checks must pass before a request can execute.
-- For a lower-memory build, set `JOBS=2` for bootstrap. A new terminal can run tests or inspect artifacts while the dashboard remains open.
+- For a lower-memory build, set `JOBS=2` for bootstrap. A new terminal can run the fast unit suite or inspect artifacts while the dashboard is open. Run firmware tests sequentially when the dashboard has no active boat.
 
-Read [status and next tasks](docs/STATUS.md), [architecture](docs/ARCHITECTURE.md), [decisions](docs/DECISIONS.md) and [licenses](docs/LICENSES.md). The parent project is [ArduPilot](https://github.com/ArduPilot/ardupilot). Remora is an independent, AI-assisted development project.
+Read the [development handoff](../handoff.md), [status and next tasks](docs/STATUS.md), [architecture](docs/ARCHITECTURE.md), [decisions](docs/DECISIONS.md) and [licenses](docs/LICENSES.md). The parent project is [ArduPilot](https://github.com/ArduPilot/ardupilot). Remora is an independent, AI-assisted development project.
 
 ## Share the controls
 

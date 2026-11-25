@@ -2,13 +2,27 @@
 
 The WSL2 Ubuntu checkout is `~/src/remora` on the owner's Windows desktop. The project branch is `remora/main`. The [fork](https://github.com/anethema/remora) preserves ArduPilot upstream history. The baseline is the unmodified Rover-4.7.3 source, commit `d9c5097c3d8333435712ffed86bca8ce00c4bb46`. All 21 recursive submodule status entries matched their recorded commits on the verification host.
 
+## Development pause
+
+Start the next engineering session with the [root handoff](../../handoff.md). Simulator and sharing changes end at `45b5d17c7b`. The dry steering plan was added at `55a83e9e48`. On that checkout, `./remora/scripts/doctor.sh` passed, and `./remora/scripts/run-tests.sh -q` reported **49 passed** with Python 3.12.13. No firmware or hardware test was run for this documentation checkpoint.
+
+The WSL dashboard answered on port 8765 and reported IDLE. Its 80 lbf, 20 km/h crosswind, northward current setup matched archived `20261125T231616Z-b5b75ae1/scenario.json` exactly. This run ended in station keeping after 1,729.239 simulated seconds with pickup outcome `incomplete`. An earlier run, `20261125T214844Z-9d308cac`, reached rendezvous, continued holding, then finished with a latched simulated motor cutoff at 52,400.016 simulated seconds. A completed pickup and a successful final run outcome are separate fields. Full results and raw logs stay on WSL.
+
+### Open work in priority order
+
+1. Run paired calm, wind-only, current-only and combined conditions using the same seeds, hull and pickup timing. Preserve negative controls. Publish the scenario inputs, run IDs, progress, cross-track error, separation and energy outcomes. [Implementation brief](../../handoff.md#next-development-increment)
+2. Collect the owner's 30 lbf motor identification, mount dimensions and dry steering measurements. Use measured travel and slew rate to improve a motor-specific profile. [Bench worksheet](../hardware/steering-bench.md)
+3. Extend environmental and electrical validation, then fault schedules, restart behavior and isolation feedback. The milestone table tracks gaps by subsystem.
+
 ## Running today
 
 Open **http://127.0.0.1:8765/** in Windows while the WSL dashboard is running. **Boat, motor & wind** opens the design editor while the simulator is idle. The default scenario uses the uncalibrated lancha and an empty boat. The surfaced diver sees the separated point on the simulated handheld and taps Request pickup once. Cancel pickup enters Hold. Station keep here requests Loiter at the current location directly during pickup or after a cancellation or navigation-only fault. The alternative scenario uses a separate surface operator and the native reference boat.
 
+## Milestones
+
 | Milestone | Evidence | Outstanding work |
 | --- | --- | --- |
-| M0 · verified locally | Built actual Rover with GCC 15.2.0 and Python 3.12.13 on WSL Ubuntu 26.04. Native motorboat heartbeat, GNSS, normal arming, Guided target echo, measured transit, Loiter, Hold and cleanup. | Verified on a second clean WSL checkout and in hosted Ubuntu 22.04 CI. |
+| M0 · verified | Built real Rover on WSL. Native motorboat heartbeat, GNSS, normal arming, Guided target echo, measured transit, Loiter, Hold and cleanup. A second clean WSL build and an earlier hosted Ubuntu 22.04 job also passed. | Repeat the firmware suite when the integration or source pin changes. |
 | M1 · verified locally | Offline browser assets, loopback API and WebSocket, real firmware tracks, drifting virtual diver, seeded two-way impaired link, human authorization, synthetic route checks, results, JSON/CSV and read-only replay. Three native 1 km runs reached verified Loiter. | Add repeated disconnect/restart and scheduled safety-fault regressions. |
 | M2 · partial, uncalibrated | Actual JSON SITL actuator loop drives an external planar hull. User selects mass, length, motor thrust/current, steering, battery, wind speed/from-direction, bow and side CdA, and current. Three steering arrangements drove test courses. | Current, wind and battery sensitivity sweeps with distributions. Add current-coupled diver drift alongside explicit ground-relative drift. Measure loaded hull, drag, motor curves and turning response. Add gusts, wave/immersion effects, lead-acid rate dependence and low-reserve policy. |
 | M3 · partial | Policy and unit tests, real firmware smoke, seeded native batch, run archives, browser smoke and project-specific CI definition. | Scheduled burst/immersion and GPS/compass outages, corruption, changing no-go polygons, restart handling, independent isolation feedback and full matrix reports. |
@@ -81,9 +95,9 @@ The current desktop dashboard is **http://127.0.0.1:8765/**. The previous intera
 
 The telemetry picker labels its units. Total motor thrust now displays in lbf, matching the static per-motor rating in setup. On the existing 80 lbf single-motor run `20261125T213747Z-5818f27c`, Windows Chrome showed 33.0 lbf from a roughly 147 N sample. The browser also verified the 80 lbf reference conversion, zero thrust and unavailable thrust, without starting a second simulator.
 
-## Next implementation task
+## Calibration inputs
 
-Run controlled paired wind/current sweeps for the reference hull and plot along-track speed, lateral error and energy by steering method. Preserve no-progress and time-out outcomes. Obtain a head-on silhouette with scale at the intended loaded waterline before treating bow windage as a measured input. Any live dive continues to require separate surface supervision and independent recovery.
+Obtain a head-on silhouette with scale at the intended loaded waterline before treating bow windage as a measured input. Any live dive continues to require separate surface supervision and independent recovery.
 
 ## Consistent dashboard units
 
@@ -91,4 +105,8 @@ All operator speed inputs and readings now use km/h. The setup, plot and replay 
 
 ## Gradio shared controls
 
-The optional Gradio invite is active on the desktop. The public invite rendered the same dashboard in Windows Chrome. Verified three advancing WebSocket samples and HTTP 200 for a handheld status action on the same real run visible on the desktop. An independent HTTPS client received HTTP 403 without an invite and for a write from a different origin. Two browser contexts also passed scenario-edit, startup and reconnect synchronization checks using an in-memory fixture. All 49 unit tests passed. The public control link is private and excluded from this file. Retrieve it on WSL with `./remora/scripts/share-sim.sh --url`.
+During sharing verification, the temporary Gradio invite rendered the same dashboard in Windows Chrome. Verified three advancing WebSocket samples and HTTP 200 for a handheld status action on the same real run visible on the desktop. An independent HTTPS client received HTTP 403 without an invite and for a write from a different origin. Two browser contexts also passed scenario-edit, startup and reconnect synchronization checks using an in-memory fixture. All 49 unit tests passed. The public control link is private and excluded from this file. Retrieve an active invite privately on WSL with `./remora/scripts/share-sim.sh --url`.
+
+## Hosted verification at the pause
+
+The [last successful hosted run](https://github.com/anethema/remora/actions/runs/45703349561) verified revision `54682da6b9`, including build, doctor, native smoke, rendezvous and recovery. The [subsequent run](https://github.com/anethema/remora/actions/runs/45705484544) was canceled. Current-branch update and station results above are from WSL. The project workflow now requires manual dispatch to run firmware on GitHub. Coordinate this with desktop usage to keep one simulation active.

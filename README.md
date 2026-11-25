@@ -1,6 +1,6 @@
 # Project Remora
 
-An offline ArduPilot Rover powered-boat simulation for operator-supervised, separated rendezvous experiments. [Open the Remora project and launch instructions](remora/README.md) · [Current status and next tasks](remora/docs/STATUS.md).
+An offline ArduPilot Rover powered-boat simulation for operator-supervised, separated rendezvous experiments. [Open the Remora project and launch instructions](remora/README.md) · [Resume project development](handoff.md) · [Current status and next tasks](remora/docs/STATUS.md).
 
 # ArduPilot Project
 
