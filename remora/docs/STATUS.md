@@ -1,16 +1,22 @@
-# Project status · 2026-11-25
+# Project status · 2026-11-26
 
 The WSL2 Ubuntu checkout is `~/src/remora` on the owner's Windows desktop. The project branch is `remora/main`. The [fork](https://github.com/anethema/remora) preserves ArduPilot upstream history. The baseline is the unmodified Rover-4.7.3 source, commit `d9c5097c3d8333435712ffed86bca8ce00c4bb46`. All 21 recursive submodule status entries matched their recorded commits on the verification host.
 
-## Development pause
+## Local account transfer · 2026-11-26
+
+The new local developer should start with the [account handoff](../../handoff.md). Windows PowerShell resolved the existing WSL folder and successfully ran doctor through `wsl.exe` against the registered `Ubuntu` distro. At `b43debf548`, the WSL fast suite passed all 49 tests. The saved 80 lbf scenario was present. The dashboard on 8765, share session and Rover firmware were stopped. No firmware run or hardware test was performed for the transfer.
+
+The proposed first increment for the two-month prototype is a local loopback handheld driving the existing simulated mission, followed by radio hardware, fresh GNSS input and failure tests. The Qi-charged, magnetically operated remote is a design proposal. Confirm motor model and intended dive depth before selecting the final drive or enclosure. [Development brief and acceptance checks](../../handoff.md#next-development-increment)
+
+## Previous development checkpoint · 2026-11-25
 
 Start the next engineering session with the [root handoff](../../handoff.md). Simulator and sharing changes end at `45b5d17c7b`. The dry steering plan was added at `55a83e9e48`. On that checkout, `./remora/scripts/doctor.sh` passed, and `./remora/scripts/run-tests.sh -q` reported **49 passed** with Python 3.12.13. No firmware or hardware test was run for this documentation checkpoint.
 
 The WSL dashboard answered on port 8765 and reported IDLE. Its 80 lbf, 20 km/h crosswind, northward current setup matched archived `20261125T231616Z-b5b75ae1/scenario.json` exactly. This run ended in station keeping after 1,729.239 simulated seconds with pickup outcome `incomplete`. An earlier run, `20261125T214844Z-9d308cac`, reached rendezvous, continued holding, then finished with a latched simulated motor cutoff at 52,400.016 simulated seconds. A completed pickup and a successful final run outcome are separate fields. Full results and raw logs stay on WSL.
 
-### Open work in priority order
+### Simulation and calibration backlog
 
-1. Run paired calm, wind-only, current-only and combined conditions using the same seeds, hull and pickup timing. Preserve negative controls. Publish the scenario inputs, run IDs, progress, cross-track error, separation and energy outcomes. [Implementation brief](../../handoff.md#next-development-increment)
+1. Run paired calm, wind-only, current-only and combined conditions using the same seeds, hull and pickup timing. Preserve negative controls. Publish the scenario inputs, run IDs, progress, cross-track error, separation and energy outcomes. [Sweep brief](../../handoff.md#parallel-simulation-and-calibration-backlog)
 2. Collect the owner's 30 lbf motor identification, mount dimensions and dry steering measurements. Use measured travel and slew rate to improve a motor-specific profile. [Bench worksheet](../hardware/steering-bench.md)
 3. Extend environmental and electrical validation, then fault schedules, restart behavior and isolation feedback. The milestone table tracks gaps by subsystem.
 
